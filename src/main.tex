@@ -1,0 +1,117 @@
+\documentclass[
+    % -- opções da classe memoir --
+    12pt,                 % tamanho da fonte
+    openright,            % capítulos começam em pág ímpar (insere página vazia caso preciso)
+    oneside,              % para impressão em um lado. Oposto a twoside, verso e anverso
+    a4paper,              % tamanho do papel. 
+    % -- opções da classe abntex2 --
+    chapter=TITLE,        % títulos de capítulos convertidos em letras maiúsculas
+    section=TITLE,        % títulos de seções convertidos em letras maiúsculas
+    % -- opções do pacote babel --
+    english,              % idioma adicional para hifenização
+    brazilian,            % o último idioma é o principal do documento
+]{styles/abntex2}
+
+
+\usepackage[alf,
+    %versalete,
+    abnt-emphasize = bf, % destaca o titulo da revista ou livro em negrito;
+    abnt-etal-list = 3, % trabalhos com mais de 3 autores recebem et al.,;
+    %abnt-etal-text = it, % escreve o et al., em italico;
+    bibliographystyle = styles/abntex2-alf.bst,
+    abnt-repeated-author-omit = no % autores com + de uma entrada recebem '____.'
+]{styles/abntex2cite}
+
+\usepackage[utf8]{inputenc}
+
+%\usepackage[dvipsnames]{xcolor}
+\usepackage[table,xcdraw,dvipsnames]{xcolor}
+%\usepackage{subfigure}   % Pacote para subfiguras
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{lastpage}
+\usepackage{times}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{tocloft}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{dirtytalk}
+\usepackage{tikz}
+\usetikzlibrary{tikzmark}
+%\usepackage{array} 
+\usepackage{multirow}
+\usepackage{threeparttable} % to use table notes
+
+\usepackage{caption}
+\usepackage{textcomp}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{listings}
+\usepackage{xcolor}
+
+%New colors defined below
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+% Code listing style named "mystyle"
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour}, commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+%"mystyle" code listing set
+\lstset{style=mystyle}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Criação do symbol da função sign
+\DeclareMathOperator{\sign}{sign}
+
+\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{L}[1]{>{\RaggedRight\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+
+% Alinhamento de legenda à esquerda
+\captionsetup{justification=raggedright,singlelinecheck=false}
+
+\usepackage{styles/ttc_univali}
+
+\begin{document}
+\newcounter{equationCounter}
+
+\pretextual
+
+\input{_info.tex} \clearpage
+
+\input{0_pre_textual.tex} \clearpage
+
+\textual % Indica inicio dos elementos textuais
+\pagestyle{simple} % remove o cabecalho
+
+\input{1_introducao.tex} \clearpage
+\input{2_fundamentacao.tex} \clearpage
+\input{3_projeto.tex} \clearpage
+\input{4_consideracoes_finais} \clearpage
+
+\postextual
+\bibliography{refs.bib}  \clearpage
+
+\end{document}
