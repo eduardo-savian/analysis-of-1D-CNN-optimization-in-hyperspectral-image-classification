@@ -1,0 +1,189 @@
+\chapter{Desenvolvimento}
+\label{cap:desenvolvimento}
+
+\section{Estrutura da Implementação}
+Esta seção aborda os detalhes técnicos mais importantes para a implementação das técnicas de tolerância à falhas
+
+\subsection{Estratégia de Alocação}
+
+
+Com exceção de algumas alocações internas do FreeRTOS e da biblioteca do sistema, a maioria das alocações dinâmicas realizadas é feita com o uso de alocadores do tipo arena de memória. Este padrão de alocador comporta-se similarmente à uma pilha, o incremento e decremento de um ponteiro determina a barreira entre memória disponível e alocada. Portanto alocações são rápidas e simples, assim como liberação total ou reset para um estado anterior, a principal desvantagem destes alocadores é não serem capazes de expressar ordems de alocação e liberação granulares muito distintas \cite{ArenaAllocation}.
+
+Pela estrutura do alocador ser simples, a coleta de métricas e injeção de falhas foi simplificada dado que é possível acessar a maioria dos componentes do sistema apenas em termos de seu deslocamenteo em relação à sua arena que é facilmente identificável no depurador ao pesquisar por seu símbolo.
+
+Cada arena serve para encapsular um lifetime conjunto de $N$ alocações, todas as alocações estão vivas, ou todas estão mortas. Para o gerenciamento de tarefas essa técnica mostrou-se satisfatória e fácil de utilizar, pois tarefas e seu estado local são inseparáveis no comportamento normal do sistema, também é possível facilmente recolher memória de tarefas replicadas canceladas durante a aplicação de técnicas de TMR e Reexecução. A estrutura de arena falha em ser adequada no geranciamento de múltiplos objetos com lifetimes distintos, o único caso que isso ocorre na aplicação é na alocação de observadores de deadline, onde o problema é mitigado com o uso de uma lista intrusiva.
+
+\subsection{Tarefas}
+
+A classe \texttt{RawTask} é uma abstração fina que encapsula a que interage com o escalonador e fornece mecanismos unificados para gerenciamento do ciclo de vida das tarefas. Esta estrutura foi projetada para oferecer uma interface consistente que abstrai as especificidades da plataforma subjacente.
+
+\begin{quadro}[H]
+    \centering
+    \caption{Declaração da estrutura \texttt{RawTask}}
+
+    \begin{lstlisting}[language=C++]
+struct RawTask {
+    RawTaskFunc func = nullptr;
+    Arena* arena = nullptr;
+    void* args = nullptr;
+    DeadlineSlot* deadline = nullptr;
+    u32 stack_size = 0;
+    u32 args_size = 0;
+    u32 id{};
+    Atomic<TaskStatus> _status = TaskStatus_Initialized;
+    TaskCancelCallback on_cancel = nullptr;
+    RawTaskPlatformSpecificData _specific{};
+
+    TaskStatus status();
+
+    void join(CALLER_LOCATION);
+
+    void cancel(CALLER_LOCATION);
+
+    ~RawTask(){}
+
+    bool _platform_init(Arena* a, usize stack_size, RawTaskFunc func, void* args);
+    bool _platform_join();
+    bool _platform_cancel();
+};
+\end{lstlisting}
+\label{cod:rawTask}
+\end{quadro}
+
+Os atributos centrais da classe demonstrados no Quadro \autoref{cod:rawTask} incluem o ponteiro para o corpo da tarefa (\texttt{func}) que é envelopado por uma função \texttt{task\_wrapper} para permitir a inicialização e saída adequada. Os argumentos da função (\texttt{args}), o tamanho da pilha (\texttt{stack\_size}) e o identificador único da tarefa (\texttt{id}). O macro \texttt{CALLER\_LOCATION} é apenas uma expansão para injetar a localização do código que chamou a função utilizando a funcionalidade de \texttt{std::source\_location} do C++ 20 para facilitar diagnóstico de problemas.
+
+O atributo opcional \texttt{deadline} referencia um estrutura \texttt{DeadlineSlot} que serve como um handle para um monitor, a tarefa pode utilizar este monitor para validar seu prazo de execução que é monitorado externamente. Já o callback \texttt{on\_cancel} é uma rotina opcional que pode ser executada na deleção da tarefa, primariamente para garantir a limpeza de certos recursos mesmo no evento em que o cancelamento impeça a execução dos destrutores inseridos pelo compilador.
+
+O estado da tarefa é mantido através do atributo atômico \texttt{status} que indica o ponto geral de execução da tarefa (Não-Inicializado, Inicializado, Executando, Finalizada, Finalizada com Erro). A utilização de operações atômicas neste caso é essencial para execução em ambientes concorrentes e cuidado extra foi tomado na escolha do ordenamento de memória correto para evitar dupla desalocação de recursos, em última instância, o próprio mecanismo de aloção em arenas auxilia, por a liberação de memória é idempotente neste caso.
+
+A classe genérica \texttt{BasicTask} demonstrada no Quadro \autoref{cod:basicTask} incrementa a classe \texttt{RawTask} com conveniência adicional do uso de funções anônimas com grupos de captura e garantia de tipagem de seu retorno. O tipo \texttt{TaskContext} é passado como argumento obrigatório pois permite que a tarefa sendo executada sinalize cancelamento ou conclusão prematura, permitindo um controle superior no caso de tarefas redundantes.
+
+\begin{quadro}[H]
+    \centering
+    \caption{Declaração da estrutura \texttt{BasicTask} (Implementação omitida)}
+
+    \begin{lstlisting}[language=C++]
+template<
+    typename Output,
+    Callable<Output, TaskContext> TaskFunc,
+    Callable<void, TaskContext> OnCancel
+>
+struct BasicTask {
+    RawTask _task;
+    TaskFunc _func;
+    OnCancel _on_cancel;
+    Option<Output> _result;
+
+    static void _basic_task_wrapper(RawTask* t);
+
+    static void _basic_task_cancel_wrapper(RawTask* t);
+
+    Option<Output> result();
+
+    bool has_result() const;
+
+    TaskStatus status() const;
+
+    RawTask* raw_task();
+
+    u32 id();
+
+    void join();
+
+    void cancel();
+};
+\end{lstlisting}
+\label{cod:basicTask}
+\end{quadro}
+
+Apesar da implementação mais complexa o uso desta classe é relativamente ergonômico, sendo similar em seu uso à classe \texttt{std::thread} da introduzida no C++11 como demonstrado no Quadro \autoref{cod:basicTaskExample}.
+
+\begin{quadro}[H]
+\centering
+\caption{Utilizando uma \texttt{BasicTask} para calcular uma soma}
+\begin{lstlisting}[language=C++]
+auto numbers = Array<i32, 7>{-4, -2, 0, 6, 9, 2, 1};
+auto task = make_basic_task(&arena, [numbers](TaskContext* ctx) -> i32 {
+    i32 acc = 0;
+    for(i32 x : numbers){
+        acc += x;
+    }
+    return x;
+});
+
+task.join();
+auto sum = task.result().unwrap();
+printf("Sum = %d\n", sum);
+\end{lstlisting}
+\label{cod:basicTaskExample}
+\end{quadro}
+
+\subsection{Deadlines e Heartbeat}
+
+A classe \texttt{DeadlineWatcher} descrita no Quadro \autoref{cod:deadlineWatcher} implementa um vigilante responsável pelo gerenciamento centralizado de deadlines ativas, também podendo ser utilizado como um sinal de heartbeat ao utilizar uma deadline deliberadamente mais lenta para utilizar como uma flag de progresso períodico. Internamente, baseia-se em um vetor de descritores que mantém informações temporais de todas as tarefas sob monitoramento. Um spinlock é utilizado para sincronização pois as seções críticas são pequenas.
+
+É possível também disparar uma tarefa que executa um monitor que é monitorado por outro monitor, permitindo a criação de sub-deadlines arbitrariamente aninhadas, este padrão é uma versão rudimentar da técnica de Árvores de Supervisão que é comumente encontrada em sistemas distribuídos com tolerância à falhas \cite{MakingReliableDistSystems}.
+
+\begin{quadro}[H]
+    \centering
+    \caption{Declaração da estrutura \texttt{DeadlineWatcher}}
+
+    \begin{lstlisting}[language=C++]
+struct DeadlineWatcher {
+    Slice<DeadlineSlot> slots;
+    Spinlock _lock{};
+    Atomic<u32> _count;
+
+    usize count() const;
+
+    bool watch(RawTask* task, Duration limit);
+
+    void remove(DeadlineSlot* node);
+
+    void clear();
+
+    bool scan();
+
+    auto lock_guard(){
+        return _lock.guard();
+    }
+};
+
+struct DeadlineSlot {
+    TimeTick last_tick;
+    Duration limit;
+    RawTask* task;
+
+    void reset(){ last_tick = tick_now(); }
+};
+\end{lstlisting}
+\label{cod:deadlineWatcher}
+\end{quadro}
+
+Para a leitura e comparação de temporizadores, são utilizadas 2 funções específicas para cada plataforma: \texttt{tick\_now} para observar o estado temporal atual e \texttt{tick\_frequency} para ler a frequência do temporizador.
+
+A funcionalidade de \texttt{scan} é responsável por validar as deadlines e limpar descritores que foram encerrados, o seu retorno indica um estado de sucesso. No caso do uso do temporizador embutido da blackpill para watchdog independente (IWDG), é possível utilizar o output do monitor principal para decidir se o watchdog deve ser reiniciado ou não.
+
+\subsection{CRC32}
+
+A verificação de integridade via CRC32 utiliza a técnica de LUT (Look-up table) para todos os possíveis bytes de entrada considerando o polinômio gerador escolhido, armazenando-os em uma tabela estática. Durante o cálculo do CRC cada byte dos dados é processado através de uma operação de indexação na tabela seguida de uma operação XOR com o estado acumulado, eliminando a necessidade de cálculos bit a bit. O valor final também pode ser incrementalmente computado, que é essencial para estruturas que possuem descontinuidades em memória ou que sejam de tamanho muito grande.
+
+Cuidado adicional deve ser tomado ao calcular o CRC de uma estrutura arbitrária, pois compiladores frequentemente adicionam bytes de enchimento (padding) para garatir alinhamento adequado dos dados na memória. O conteúdo destes bytes é indefinido, portanto calcular o CRC de duas estruturas idênticas pode resultar em números diferentes devido à inclusão de bytes de enchimento com valores distintos. Para remediar isso, uma restrição de tipo \texttt{CRC\_Checkable} deve ser implementada por todas as estruturas que desejam fornecer essa funcionalidade, é parte do contrato do conceito que o implementador adequadamente lide com bytes de enchimento.
+
+\subsection{Asserts}
+
+Foram utilizados 2 níveis de assert, globais (críticos) e locais (contextuais). Para evitar conflito com o macro da biblioteca padrão, a função de assert é nomeada com o sinônimo \texttt{ensure}. A função \texttt{ensure} global verifica um predicado, caso seja falso, dispara uma exceção do processador para causar uma reinicialização forçada, indicando uma falha catastrófica no sistema. A função membro \texttt{TaskContext::ensure} não causa uma falha catastrófica, mas apenas cancela a tarefa.
+
+Asserções locais são utilizadas para detectar a violação de invariantes dentro de um contexto recuperável, já asserções globais são reservadas para propriedades fundamentais que não podem ser violadas.
+
+\subsection{Dependências Adicionais}
+
+A camada de abstração de hardware é fornecida pela STMicroelectronics através de sua ferramenta de geração de código STMCubeMX. Para a comunicação VirtualCOM por USB foi utilizado o pacote de software USB\_DEVICE da STMicroelectronics. Uma biblioteca utilitária geral (\texttt{base}) que é compatível com alvos freestanding é fornecida pelo autor. A biblioteca de domínio público \texttt{stb\_sprintf} por Sean Barrett foi usada para permitir uma implementação consistente de formatação textual entre todas as plataformas, apesar de não ser parte análise do trabalho, foi extramemente útil para diagnosticar e reportar dados do sistema durante o desenvolvimento.
+
+\subsection{Compilação do Projeto}
+
+Apesar do alvo de compilação do projeto ser um microcontrolador com o FreeRTOS com CMSISv2, o design transparente permitiu também a implementação para testes e um ciclo de debug mais rápido em sistemas operacionais completos (Linux e Windows 10/11) sem necessitar de um simulador. Os detalhes de plataforma são consolidados em uma única unidade de tradução e condicionalmente compilados dependendo do sistema alvo. Todo código específico de plataforma pode ser encontrado em suas respectivas unidades \texttt{platform\_PLATAFORMA.cpp}. A versão de teste utiliza de alguns primitivos de semáforo do FreeRTOS, porém esses podem ser generalizados para multi-plataforma.
+
+\subsection{Programa de Teste}
+
+O programa de teste escolhido foi desenvolvido em 3 versões (Controle, TMR, Reexecução), o algoritmo de convolução é o mesmo como demonstrado no \autoref{cap:proj}, tendo como alteração apenas o setup das tarefas adicionais (no caso de TMR) e a alocação inicial de memória. Para carregar a armazenar a imagem embutida, foi escrito um pequeno carregador de imagem PGM do tipo binário (P5).

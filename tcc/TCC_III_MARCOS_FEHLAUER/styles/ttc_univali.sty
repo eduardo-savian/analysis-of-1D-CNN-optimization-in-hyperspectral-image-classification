@@ -1,0 +1,362 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{styles/ttc_univali}[2019/06/04]
+%%%%%%%% SETUP LISTS SPACING %%%%%%%%%
+\usepackage{enumitem}
+\setlist{topsep=0pt, leftmargin=53.28pt}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5 Lista de Quadros %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\quadroname}{Quadro}
+\newcommand{\listofquadrosname}{Lista de quadros}
+
+
+\newfloat[chapter]{quadro}{loq}{\quadroname}
+\newlistof{listofquadros}{loq}{\listofquadrosname}
+\newlistentry{quadro}{loq}{0}
+
+% configurações para atender às regras da ABNT
+\setfloatadjustment{quadro}{\raggedright}
+\counterwithout{quadro}{chapter}
+\renewcommand{\cftquadroname}{\quadroname\space} 
+\renewcommand*{\cftquadroaftersnum}{.\hfill}
+
+% Configuração de posicionamento padrão:
+\setfloatlocations{quadro}{H}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5 Lista de Equações %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newcommand{\equacaoname}{Equacao}
+\newcommand{\listofequacaoname}{Lista de Equações}
+
+\newfloat[chapter]{Equacao}{loe}{\equacaoname}
+\newlistof{listofequacao}{loe}{\listofequacaoname}
+\newlistentry{Equacao}{loe}{0}
+
+% configurações para atender às regras da ABNT
+\setfloatadjustment{Equacao}{\centering}
+\counterwithout{Equacao}{chapter}
+\renewcommand{\cftEquacaoname}{\equacaoname\space} 
+\renewcommand*{\cftEquacaoname}{.\hfill}
+
+
+\newcommand{\addEquacao}[2]{
+    \addcontentsline{loe}{Equacao}{\protect Equação #2. #1 }\par}
+
+% Configuração de posicionamento padrão:
+\setfloatlocations{Equacao}{H}
+
+
+
+
+
+
+
+
+
+
+
+% CHANGE FONT
+
+\newcommand{\changeFont}[2]{
+    {\fontfamily{#1}\selectfont #2}
+}
+
+
+
+% % redefinition of \equation for convenience
+% \let\oldequation = \equation
+% \let\endoldequation = \endequation
+% \AtBeginDocument{\let\oldlabel = \label}% \AtBeginDocument because hyperref redefines \label
+% \newcommand{\mynewlabel}[1]{\myequations{#1}\oldlabel{#1}}
+% \renewenvironment{equation}{%
+% \oldequation
+% \let\label\mynewlabel
+% }{\endoldequation}
+
+% \newcommand{\listequationsname}{Lista de Equações}
+% \newlistof{myequations}{equ}{\listequationsname}
+% \newcommand{\myequations}[1]{%
+% \addcontentsline{equ}{myequations}{\protect\numberline{\theequation}#1}}
+% \setlength{\cftmyequationsnumwidth}{3em}
+
+\renewcommand{\theequation}{\arabic{equation}}
+%\newcommand{\equacaoname}{Equacao}
+
+%\newfloat{equacao}{loe}{\equacaoname}
+%\newlistof{listofequacao}{loe}{\listofequacaoname}
+%\newlistentry{equacao}{loe}{0}
+
+% configurações para atender às regras da ABNT
+%\setfloatadjustment{equacao}{\centering}
+%\counterwithout{equacao}{chapter}
+%\renewcommand{\cftequacaoname}{\equacaoname\space} 
+%\renewcommand*{\cftequacaoaftersnum}{\hfill--\hfill}
+
+% Configuração de posicionamento padrão:
+%\setfloatlocations{equacao}{hbtp}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\renewcommand{\ABNTEXchapterfont}{\fontfamily{ptm}\fontseries{b}\selectfont}
+\renewcommand{\ABNTEXchapterfontsize}{\fontsize{16pt}{16pt}\selectfont}
+
+\renewcommand{\ABNTEXsectionfont}{\fontfamily{ptm}\fontseries{b}\selectfont}
+\renewcommand{\ABNTEXsectionfontsize}{\fontsize{14pt}{14pt}\selectfont}
+
+\renewcommand{\ABNTEXsubsectionfont}{\fontfamily{ptm}\fontseries{b}\selectfont}
+\renewcommand{\ABNTEXsubsectionfontsize}{\fontsize{14pt}{14pt}\selectfont}
+
+\renewcommand{\ABNTEXsubsubsectionfont}{\fontfamily{ptm}\fontseries{b}\selectfont}
+\renewcommand{\ABNTEXsubsubsectionfontsize}{\fontsize{12pt}{12pt}\selectfont}
+
+\setlength{\parindent}{1.27cm}
+\setlength{\parskip}{16pt}
+\usepackage{indentfirst} % Edenta o primeiro parágrafo de cada seção
+
+\renewcommand{\afterchaptertitle}%{\par\nobreak\vskip0.5\baselineskip}
+
+
+% Estilo indentação enumerate
+\setlist[enumerate,1]{label={\arabic*.},topsep=0pt,itemsep=0pt,leftmargin=\parindent+\labelwidth-\labelsep}%
+\setlist[enumerate,2]{label={--},topsep=0pt,itemsep=0pt,leftmargin=*}
+
+
+%%%%% Sumário
+\renewcommand{\cftsubsectionfont}{\mdseries} % Tira o negrito da subsection no sumario
+\renewcommand{\cftsubsubsectionfont}{\mdseries} % Tira o negrito da subsubsection no sumario
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% BASIC INFO %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\usepackage{ragged2e}
+
+% Universidade
+% Escola
+% Curso
+% Titulo
+% Autor
+% Cidade e Data e Mês
+
+\newenvironment{Info}[9]{
+    
+    \begin{center}
+        %%%%%%%%%%%%%%%%%%%%% CAPA %%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        \fontsize{14pt}{14pt}\selectfont 
+        {\textbf{#1 \\ #2 \\ #3}}
+        
+        \vspace{0.37\textheight}
+        \uppercase{\textbf{#4}}
+        
+        \vspace{48pt}
+        por
+        \\[24pt]
+        #5
+        
+        \vspace*{\fill}
+        #6
+        \clearpage
+        
+        %%%%%%%%%%%%%%%%%% CONTRACAPA %%%%%%%%%%%%%%%%%%%%%%%%%
+        {\textbf{#1 \\ #2 \\ #3}}
+        
+        \vspace{0.27\textheight}
+        \uppercase{\textbf{#4}}
+        
+        \vspace{24pt}
+        Área de #7
+        
+        \vspace{12pt}
+        por
+        
+        \vspace{12pt}
+        #5
+        
+        \vspace{36pt}
+        \hfill\begin{minipage}{\dimexpr\textwidth/2+15pt}
+            \fontsize{12pt}{12pt}\selectfont 
+            \begin{justify}
+                Relatório apresentado à Banca Examinadora do Trabalho Técnico-científico de Conclusão de Curso de Engenharia de Computação para análise e aprovação.
+                
+                \noindent
+                Orientador(a): #8
+                
+               % \noindent
+                %ggggggggggCoorientador(a): #9
+            \end{justify}
+            \xdef\tpd{0}
+        \end{minipage}
+        
+        \vspace*{\fill}
+        #6
+        \clearpage
+    \end{center}
+}
+
+\newenvironment{Dedicatoria} {
+    \itshape
+    \vspace*{\fill}
+    \raggedright
+    \begin{flushright}
+} {
+    \end{flushright}
+    \clearpage
+}
+
+\newenvironment{Agradecimentos}{
+    \pretextualchapter{Agradecimentos}
+    %\chapter*{}
+} {
+    \clearpage
+}
+
+\newenvironment{Epigrafe} {
+    \itshape
+    \vspace*{\fill}
+    \raggedright
+    \begin{flushright}
+} {
+    \end{flushright}
+    \clearpage
+}
+
+\newenvironment{Resumo}{
+    \pretextualchapter{Resumo}
+    \setlength\parindent{0pt}
+} {
+    \clearpage
+}
+
+\newenvironment{Abstract}{
+    \pretextualchapter{Abstract}
+    \setlength\parindent{0pt}
+} {
+    \clearpage
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% TABELAS INTRODUCAO %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%% CRONOGRAMAS %%%%%%%%%%%%%%%%%%%%%%%%
+\newlength\qa
+\setlength\qa{\dimexpr .39\textwidth -.5\tabcolsep}
+\newlength\qk
+\setlength\qk{\dimexpr .1\textwidth -.5\tabcolsep}
+% \setlength\qa{\dimexpr .2\textwidth -.5\tabcolsep}
+% \setlength\qk{\dimexpr .065\textwidth -.5\tabcolsep}
+
+% center cells
+\newcolumntype{P}[1]{>{\centering\arraybackslash}p{#1}}
+\newcolumntype{L}[1]{>{\hspace{0pt}}p{#1}}
+
+\usepackage{float}
+%\restylefloat{quadro} % obligate quadro not get repositioned (must use H parameter)
+
+\newenvironment{cronograma}[1]{
+    \begin{quadro}[h!]
+        \caption{#1}
+        \vspace{-6pt}
+        \fontsize{10}{12}\selectfont
+        \def\arraystretch{1.25} %  1 is the default
+        \setlength\tabcolsep{1.5pt} % default value: 6pt
+} {
+        \end{tabular}
+    \end{quadro}
+}
+
+\usepackage{forloop}
+\usepackage{intcalc}
+\usepackage{ifthen}
+\newcommand{\uHeaderCronograma}[2]{
+\renewcommand{\arraystretch}{1.5}
+  
+    \begin{tabular}{|L{\qa}|P{\qk}|P{\qk}|P{\qk}|P{\qk}|P{\qk}|P{\qk}|}
+        \rowcolor[HTML]{EFEFEF}
+        \hline
+        \cellcolor[HTML]{EFEFEF}\textbf{Atividade}
+        %\multicolumn{10}{c|}{\fontsize{10}{12}\selectfont\textbf{#1}} & 
+        %\multicolumn{2}{c|}{\fontsize{10}{12}\selectfont\textbf{#2}}
+        %\\ \cline{2-13}
+        
+        \newcounter{loop}
+        \newcounter{m}\newcounter{y}
+        \forloop{loop}{0}{\value{loop} < 6}{
+            \setcounter{m}{\intcalcMod{\value{loop}+#1}{13}}
+            \ifnum \intcalcDiv{\value{loop}+#1}{13}<1 {
+                \setcounter{y}{#2}
+            } \else {
+                \setcounter{y}{#2+1}
+                \setcounter{m}{\value{m}+1}
+            } \fi
+            & \ifnum \value{m}<10 {0}\fi\textbf{\arabic{m}/\arabic{y}}
+        } \\ \hline
+        % & mar & abr & mai & jun & jul & ago & set & out & nov & dez & jan & fev \\ \hline
+}
+
+% lengths
+% \newlength\qa
+% \setlength\qa{\dimexpr .4\textwidth -.5\tabcolsep}
+% \newlength\qk
+% \setlength\qk{\dimexpr .1\textwidth -.5\tabcolsep}
+
+% % center cells
+% \newcolumntype{P}[1]{>{\centering\arraybackslash}p{#1}}
+
+% % invisible X
+\newcommand{\nX}{\phantom{X}}
+\newcommand{\X}{X}
+
+% \newenvironment{cronograma}[1]{
+%     \begin{quadro}[ht]
+%         \caption{#1}
+%         \fontsize{10}{12}\selectfont
+%         \def\arraystretch{1.25}%  1 is the default
+%         \setlength\tabcolsep{1.5pt} % default value: 6pt
+% } {
+%         \end{tabular}
+%     \end{quadro}
+% }
+
+% \newcommand{\uHeaderCronograma}[7]{
+%     \begin{tabular}{|p{\qa}|P{\qk}|P{\qk}|P{\qk}|P{\qk}|P{\qk}|P{\qk}|}
+%         \hline
+%         {\fontsize{12}{14}\selectfont\textbf{Atividade}} & \textbf{#1} & \textbf{#2} & \textbf{#3} & \textbf{#4} & \textbf{#5} & \textbf{#6} \\ \hline
+% }
+
+% \newcommand{\uAtividade}[7]{
+%     #1 & \mbox{#2} & \mbox{#3} & \mbox{#4} & \mbox{#5} & \mbox{#6} & \mbox{#7} \\ \hline
+% }
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%% RISCOS %%%%%%%%%%%%%%%%%%%%%%%%%%
+% lengths
+\newlength\qn
+\setlength\qn{\dimexpr .2\textwidth -2\tabcolsep}
+\newlength\qp
+\setlength\qp{\dimexpr .189\textwidth -2\tabcolsep}
+\newlength\qi
+\setlength\qi{\dimexpr .125\textwidth -2\tabcolsep}
+\newlength\qc
+\setlength\qc{\dimexpr .286\textwidth -2\tabcolsep}
+
+\newenvironment{riscos}[1]{
+    \begin{quadro}[ht]
+        \caption{#1}
+        \fontsize{10}{12}\selectfont
+        \def\arraystretch{1.25}%  1 is the default
+} {
+        \end{tabular}
+    \end{quadro}
+}
+
+\newcommand{\uHeaderRiscos}{
+    \begin{tabular}{|p{\qn}|p{\qp}|p{\qi}|p{\qn}|p{\qc}|}
+    \hline
+    {\fontsize{12}{14}\selectfont\textbf{Risco}} & \textbf{Probabilidade} & \textbf{Impacto} & \textbf{Gatilho} & \textbf{Plano de Contingência} \\ \hline
+}
+
+\newcommand{\uRisco}[5]{
+    #1 & #2 & #3 & #4 & #5 \\ \hline
+}
+\newlist{RF}{enumerate}{1}
+\setlist[RF, 1]{label = RF0\arabic*:}
+
+%\newlist{RNF}{enumerate}{1}
+%\setlist[RNF, 1]{label = RNF0\arabic*:}
+
+%\newlist{RN}{enumerate}{1}
+%\setlist[RN, 1]{label = RN0\arabic*:}

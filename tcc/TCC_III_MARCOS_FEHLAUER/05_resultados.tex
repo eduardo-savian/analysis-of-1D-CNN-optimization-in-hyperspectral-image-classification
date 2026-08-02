@@ -1,0 +1,365 @@
+\chapter{Resultados}
+\label{cap:resultados}
+
+\section{Execução}
+\label{sec:execucao}
+
+O projeto é compilado com o compilador GCC da toolchain oficial para embarcados da ARM (\texttt{arm-eabi-none}). O script \texttt{build.lua} provê uma interface CLI simples para compilar o projeto para a plataforma escolhida.
+
+\subsection{Injeção de falhas}
+Após compilar o projeto em um arquivo ELF com informação de debug é encontrar quais os símbolos seus endereços para relizar a injeção. Para a fase de injeção em locais conhecidos, os símbolos escolhidos foram:
+
+\begin{itemize}
+    \item \texttt{kernel}: Filtro (kernel) do contexto de convolução usado
+  
+    \item \texttt{output\_row}s: Linha(s) utilizadas como espaço de resultado para a convolução
+
+    \item \texttt{output}: Resultado final
+\end{itemize}
+
+Para a fase de injeção com offsets do stack, foram sorteados uma variável local da função e um tamanho entre 4 a 32 bytes (1 a 4 palavras).
+
+\subsection{Demonstração do processo de Injeção}
+
+Com o microcontrolador conectado via ST-Link e com VirtualCOM por USB é inicializada uma sessão de debugging, o primeiro passo é inicializar a sessão com o breakpoint padrão na função \texttt{main} (\autoref{fig:injStartDebugger}) que é definida pelo código de plataforma da HAL fornecida pelo fabricante do microcontrolador. É inserido um breakpoint na função \texttt{entrypoint} que o ponto de entrada real da aplicação que ocorre após o setup de periféricos e do RTOS.
+
+\begin{figure}[H]
+    \centering
+    \captionsetup{justification=centering}
+    \caption{Inicializar sessão de debugging no ST-Link}
+    \includegraphics[width=0.7\textwidth]{assets/inj_start_debugger.png} \\
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor}
+    \label{fig:injStartDebugger}
+\end{figure}
+
+O programa é resumido Até alcançar o breakpoint, neste momento, é recomendado iniciar a conexão VirtualCOM para observar o sistema, aqui foi usado o \texttt{microCOM} pelo terminar do VSCode como demonstrado na \autoref{fig:injConnectCOM}.
+
+\begin{figure}[H]
+    \centering
+    \captionsetup{justification=centering}
+    \caption{Conectar via VirtualCOM}
+    \includegraphics[width=0.6\textwidth]{assets/inj_connect_com.png} \\
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor}
+    \label{fig:injConnectCOM}
+\end{figure}
+
+É selecionado um local para a injeção, neste caso será realizado uma injeção fixa nas linhas de output no exemplo com reexecução. Recomenda-se usar a funcionalidade de breakpoints condicionais para avançar para uma iteração desajada, na \autoref{fig:injCondBreakpoint} foi escolhido uma iteração específica.
+
+\begin{figure}[H]
+    \centering
+    \captionsetup{justification=centering}
+    \caption{Posicionar Breakpoint}
+    \includegraphics[width=0.98\textwidth]{assets/inj_cond_breakpoint.png} \\
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor}
+    \label{fig:injCondBreakpoint}
+\end{figure}
+
+Para realizar um upset, é selecionado o endereço do local escolhido e aplicado pelo console do debugger. Neste caso foi realizado um XOR com uma máscara de bits aleatória. A \autoref{fig:injCauseUpset} demonstra este processo.
+
+\begin{figure}[H]
+    \centering
+    \captionsetup{justification=centering}
+    \caption{Causar upset}
+    \includegraphics[width=0.85\textwidth]{assets/inj_cause_upset.png} \\
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor}
+    \label{fig:injCauseUpset}
+\end{figure}
+
+Após feitas as injeções desejadas, o programa é resumido e seu resultado inspecionado. Neste caso, como demonstrado na \autoref{fig:injResultadoVirtualcom}, o erro foi mascarado via consenso majoritário.
+
+\begin{figure}[H]
+    \centering
+    \captionsetup{justification=centering}
+    \caption{Resultado no VirtualCOM}
+    \includegraphics[width=0.65\textwidth]{assets/inj_resultado_virtualcom.png} \\
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor}
+    \label{fig:injResultadoVirtualcom}
+\end{figure}
+
+Para observar o resultado, basta definir a macro \texttt{DUMP\_BITMAP} e redirecionar a saída do microCOM para um arquivo PGM. Em um sistema POSIX seria algo como \texttt{microcom -f -p /dev/ttyACM0 > out.pgm}
+
+Refazendo o processo acima com a saída redirecionada é possível observar o output da imagem com o filtro Sobel aplicado à direita, como desmonstrado na figura \autoref{fig:gatoNormalESobel}.
+
+\begin{figure}[H]
+	\centering
+	\captionsetup{justification=centering}
+	\caption{Resultado do Filtro Sobel}
+	\includegraphics[width=0.95\textwidth]{assets/cat_regular_to_sobel.png} \\
+	\captionsetup{justification=raggedright}
+	\caption*{Fonte: (Original) https://www.flickr.com/photos/evapro/539719106}
+	\label{fig:gatoNormalESobel}
+\end{figure}
+
+\subsection{CRC em Detalhes}
+
+Esta seção foca especificamente na aplicação do CRC. Para essa demonstração em particular não será utilizado Reexecução ou TMR.
+
+A \autoref{fig:crcDemo1} demonstra estado inicial do cálculo do CRC de cada linha. Na janela superior direita estão os conteúdos da memória do vetor de CRCs e na parte inferior os dados de pixel da imagem output.
+
+Na \autoref{fig:crcDemo2} é demonstrado a imagem após ter as linhas filtradas e seus valores de checagem calculados. É introduzido uma corrupção na primeira linha do output (para facilitar visualização) na \autoref{fig:crcDemo3}.
+
+Após a inserção, é realizado a checagem dos valores CRC com suas linhas correspondentes, os valores são modificados e viram um vetor que serve como uma máscara booleana para decidir quais linhas necessitam ser recomputadas, linhas marcadas com 0 indicam necessidade de recomputação pois a checagem falhou. A \autoref{fig:crcDemo4} demonstra que a linha que sofreu um upset é corretamente identificada. Cores indicam a relação do valor e sua região de memória.
+
+\begin{figure}[H]
+	\centering
+	\captionsetup{justification=centering}
+	\caption{Estado Inicial}
+	\includegraphics[width=1.0\textwidth]{assets/crc_demo_1.png} \\
+	\captionsetup{justification=raggedright}
+	\caption*{Fonte: Elaborada pelo autor}
+	\label{fig:crcDemo1}
+\end{figure}
+\begin{figure}[H]
+	\centering
+	\captionsetup{justification=centering}
+	\caption{Convolução aplicada e CRCs de cada linha calculados}
+	\includegraphics[width=1.0\textwidth]{assets/crc_demo_2.png} \\
+	\captionsetup{justification=raggedright}
+	\caption*{Fonte: Elaborada pelo autor}
+	\label{fig:crcDemo2}
+\end{figure}
+\begin{figure}[H]
+	\centering
+	\captionsetup{justification=centering}
+	\caption{Inserção de um valor upset}
+	\includegraphics[width=1.0\textwidth]{assets/crc_demo_3.png} \\
+	\captionsetup{justification=raggedright}
+	\caption*{Fonte: Elaborada pelo autor}
+	\label{fig:crcDemo3}
+\end{figure}
+\begin{figure}[H]
+	\centering
+	\captionsetup{justification=centering}
+	\caption{Comparação dos CRCs resulta em máscara de execução}
+	\includegraphics[width=0.95\textwidth]{assets/crc_demo_4.png} \\
+	\captionsetup{justification=raggedright}
+	\caption*{Fonte: Elaborada pelo autor}
+	\label{fig:crcDemo4}
+\end{figure}
+
+
+\subsection{Consenso (TMR) em Detalhes}
+
+Nas aplicações de reexecução e TMR é necessário aplicar um consenso majoritário dentre as 3 execuções, esta seção aborda o funcionamento do consenso em detalhes. Será utilizado TMR como um exemplo, pois é mais complexo e requer sincronização e o funcionamento do algoritmo majoritário é o mesmo aplicado na aplicação de Reexecução.
+
+Na \autoref{fig:tmrDemo1} é observado o estado inicial, as 3 tarefas replicadas são criadas e aguardam seus semáforos binários para iniciar um novo ciclo de trabalho.
+
+Uma corrupção de um NOT subtraído por 1 é realizada na segunda tarefa (índice 1), a discrepância entre o conteúdo das linhas das tarefas é demonstrado em \autoref{fig:tmrDemo2}.
+
+Na seguinte iteração (\autoref{fig:tmrDemo3}), a função de consenso detecta e mascara o erro, selecionado o resultado majoritário da terceira tarefa (índice 2) que está em concordância com a primeira.
+
+\begin{figure}[H]
+	\centering
+	\captionsetup{justification=centering}
+	\caption{Estado inicial - 3 tarefas}
+	\includegraphics[width=0.95\textwidth]{assets/tmr_demo_1.png} \\
+	\captionsetup{justification=raggedright}
+	\caption*{Fonte: Elaborada pelo autor}
+	\label{fig:tmrDemo1}
+\end{figure}
+
+
+\begin{figure}[H]
+	\centering
+	\captionsetup{justification=centering}
+	\caption{Upset inserido na segunda tarefa}
+	\includegraphics[width=0.95\textwidth]{assets/tmr_demo_2.png} \\
+	\captionsetup{justification=raggedright}
+	\caption*{Fonte: Elaborada pelo autor}
+	\label{fig:tmrDemo2}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\captionsetup{justification=centering}
+	\caption{Consenso majoritário seleciona opção que mascara o upset}
+	\includegraphics[width=0.95\textwidth]{assets/tmr_demo_3.png} \\
+	\captionsetup{justification=raggedright}
+	\caption*{Fonte: Elaborada pelo autor}
+	\label{fig:tmrDemo3}
+\end{figure}
+
+O processo de consenso é idêntico para reexecução, porém ao invés de 3 estados provenientes de tarefas distintas que sincronizam, é realizado uma aplicação à um buffer com os resultados das 3 execuções sucessivas.
+
+
+\section{Dependabilidade e Performance}
+
+Após repetir o processo de injeção da \autoref{sec:execucao} para as combinações de técnicas, foi possível coletar os dados representados na \autoref{tab:resSemInj}. O pico de memória da arena para o armazenamento das tarefas é denominado $M_{task}$, o pico da arena de memória adicional é denominado $M_{extra}$. As variáveis $T_{total}$ e $T_{linha}$ representam o tempo total de execução e o tempo médio por linha, respectivamente. A variável $D$ indica o número de detecções de erros bem-sucedidas.
+
+\begin{quadro}[H]
+	\centering
+	\caption{Resultados sem injeção}
+	\begin{tabular}{|l|c|c|c|c|c|c|}
+		\hline
+		\rowcolor[HTML]{C0C0C0}
+		\textbf{Técnicas} & \textbf{$T_{total}$} & \textbf{$T_{linha}$} & \textbf{$M_{task}$} & \textbf{$M_{extra}$} & \textbf{Detecção} & \textbf{Resultado} \\
+		\hline
+		N/A & \textsc{1542}ms & 12ms & 2768B & 374B & 0 & OK \\
+		CRC32 & 1549ms & 12ms & 2768B & 856B & 0 & OK \\ \hline
+		Reexec & 4631ms & 38ms & 2768B & 1074B & 0 & OK \\ \hline
+		Reexec + CRC32 & 4635ms & 38ms & 2768B & 1556B & 0 & OK \\ \hline
+		TMR & 4644ms & 38ms & 8336B & 1126B & 0 & OK \\ \hline
+		TMR + CRC32 & 4651ms & 38ms & 8336B & 1608B & 0 & OK \\ \hline
+\end{tabular}
+\label{tab:resSemInj}
+\end{quadro}
+
+Os resultados neste caso servem para estabelcer uma linha base das latências envolvidas. O método de CRC32 é relativamente rápido, adicionando apenas alguns milisegundos e um pouco menos de 500 bytes para manter o CRC de cada linha da imagem juntamente com buffers temporários para processamento.
+
+As técnicas de reexecução e TMR possuem um grande impacto no tempo de execução de aproxiamente 3.02x, já a técnica de TMR em particular necessita do triplo de memória de tarefas para manter o stack de todas suas sub-tarefas assim como triplo de memória de trabalho para garantir o isolamento entre as sub-tarefas. O tempo de execução entre a Reexecução e TMR não é muito grande, o sistema foi executado sem multiprocessamento simétrico, portanto não foi possível observar as vantagems potenciais causadas pelo uso de paralelismo. O custo das trocas de contexto do kernel e das sincronizações pode ser observado no valor das tarefas TMR serem tipicamente apenas alguns millisegundos mais lentas que as versões de reexecução.
+
+
+Injetando falhas nos filtros e no output como descrito no \autoref{cap:proj}, foi possível observar o comportamento das técnicas na presença de falhas que não envolvam corrupção de seu stack frame.
+
+\begin{quadro}[H]
+	\centering
+	\caption{Resultados com Injeção em variáveis fixas}
+	\begin{tabular}{|p{0.095\textwidth}|c|c|c|c|c|c|p{0.175\textwidth}|}
+		\hline
+		\rowcolor[HTML]{C0C0C0}
+		\textbf{Técnicas} & \textbf{$T_{total}$} & \textbf{$T_{linha}$} & \textbf{$M_{task}$} & \textbf{$M_{extra}$} & \textbf{$D$} & \textbf{Resultado} & \textbf{Observação} \\
+		\hline
+		
+		N/A & 1544ms & 12ms & 2768B & 374B & 0 & Corrupção & N/A  \\ \hline
+		CRC32 & 1565ms & 12ms & 2768B & 856B & 1 & OK & Corrupção detectada no output apenas \\ \hline
+		Reexec & 4634ms & 38ms & 2768B & 1074B & 1 & Corrupção & Mascarou corrupção na linha, mas não no output \\ \hline
+		Reexec + CRC32 & 4676ms & 38ms & 2768B & 1556B & 2 & OK & Corrupção mascarada e output recomputado \\ \hline
+		TMR & 4647ms & 38ms & 8336B & 1126B & 1 & Corrupção & Mascarou corrupção na linha, mas não no output \\ \hline
+		TMR + CRC32 & 4654ms & 38ms & 8336B & 1608B & 2 & OK & Corrupção mascarada e output recomputado \\ \hline
+		
+
+	\end{tabular}
+	\label{tab:resInjecaoFixa}
+\end{quadro}
+
+No \autoref{tab:resInjecaoFixa} é possível observar um padrão, a correção de erro ao final (output) só pode ser concluída no casos em que se possui a presença de um algoritmo de checagem, as técnicas de TMR e Reexecução conseguiram com sucesso mascarar a falha local de uma linha da corrupção com um uma função de consenso majoritário simples, porém uma vez que o valor já tenha sido calculado não é mais possível validar sua integridade. Para cada técnica foi escolhida uma variável do stack frame e aplicado um upset a partir de um offset e um tamanho. A notação $V+O:N$ indica que foi aplicado uma corrupção de tamanho $N$ a partir do endereço da variável $V$ deslocado por $O$ bytes.
+
+\begin{quadro}[H]
+	\centering
+	\caption{Resultados com Injeção no Stack Frame}
+	\begin{tabular}{|p{0.09\textwidth}|c|c|c|c|c|c|p{0.175\textwidth}|p{0.05\textwidth}|}
+		\hline
+		\rowcolor[HTML]{C0C0C0}
+		\textbf{Técnicas} & \textbf{$T_{total}$} & \textbf{$T_{linha}$} & \textbf{$M_{task}$} & \textbf{$M_{extra}$} & \textbf{$D$} & \textbf{Resultado} & \textbf{Observação} & \textbf{Var} \\
+		\hline
+
+		N/A	& ~1100ms & 60ms & 2768B & 374B & 1 & Erro & Deadline de linha expirada & row 0:8 \\ \hline
+		CRC32 & ~1100ms & 60ms & 2768B & 856B & 1 & Erro & Deadline de linha expirada & row 0:8 \\ \hline
+		Reexec & <100ms & 0ms & 2768B & 1074B & 1 & Erro & Assert: row.width != output.width & output\_rows 4:12 \\ \hline
+		Reexec + CRC32 & 2265ms & 38ms & 2768B & 1556B & 1 & Erro & Hard Fault do FreeRTOS & output\_rows 4:12 \\ \hline
+		TMR & 4625ms & 38ms & 8336B & 1126B & 0 & OK & Evitou corrupção através de indireção & tmr0 0:4 \\ \hline
+		TMR + CRC32 & 4628ms & 38ms & 8336B & 1608B & 0 & OK & Evitou corrupção através de indireção & tmr0 0:4 \\ \hline
+
+	\end{tabular}
+	\label{tab:resInjecaoStackFrame}
+\end{quadro}
+
+% TODO botar isso num apendice?
+\section{Impacto de falhas no Output}
+
+Foram selecionadas execuções que resultam em um output que possa ser visualizado para demonstrar o efeito dos upsets no resultado final. A  \autoref{fig:catSobel} demonstra o output desejado, com a imagem de um gato com um filtro Sobel aplicado. A \autoref{fig:catSobelKernelUpset} mostra o impacto de um upset causado no filtro (kernel) da convolução. Na \autoref{fig:catSobelSubtleUpset} a corrupção é bem mais sutil, manifestando-se como uma pequena horizontal clara na linha 6. Por fim, a figura \autoref{fig:catSobelInterrupted} demonstra o efeito da convolução sendo interrompida devido à um assert, deixando o resultado incompleto.
+
+\begin{figure}[H]
+	\centering
+	\captionsetup{justification=centering}
+	\caption{Imagem com o parâmetro de filtro corrompido}
+	\includegraphics[width=0.3\textwidth]{assets/cat_sobel_kernel_upset.png} \\
+	\captionsetup{justification=raggedright}
+	\caption*{Fonte: Elaborada pelo autor}
+	\label{fig:catSobelKernelUpset}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\captionsetup{justification=centering}
+	\caption{Imagem com Corrupção sutil}
+	\includegraphics[width=0.3\textwidth]{assets/cat_sobel_subtle_upset.png} \\
+	\captionsetup{justification=raggedright}
+	\caption*{Fonte: Elaborada pelo autor}
+	\label{fig:catSobelSubtleUpset}
+\end{figure}
+
+\begin{figure}[H]
+	\centering
+	\captionsetup{justification=centering}
+	\caption{Imagem com filtro Sobel interrompido}
+	\includegraphics[width=0.3\textwidth]{assets/cat_sobel_interrupted.png} \\
+	\captionsetup{justification=raggedright}
+	\caption*{Fonte: Elaborada pelo autor}
+	\label{fig:catSobelInterrupted}
+\end{figure}
+
+
+\section{Verificação}
+
+\begin{quadro}[H]
+	\centering
+	\caption{Requisitos funcionais}
+	\begin{tabular}{|p{0.08\textwidth}|p{0.40\textwidth}|p{0.45\textwidth}|}
+		\hline
+		\rowcolor[HTML]{C0C0C0}
+		\textbf{Requisito} & \textbf{Descrição} & \textbf{Validação} \\
+		\hline
+		
+		\textbf{RF01} & Implementação de todos os algoritmos descritos na \autoref{subsec:algoritmos} & Os algoritmos foram implementados e utilizados para os experimentos no \autoref{cap:resultados} \\
+		\hline
+		
+		\textbf{RF02} & Configuração do mecanismo de tolerância, prioridade e prazo de execução da tarefa & A configuração do mecanismo é feita de forma imperativa, já o prazo, prioridade e tamanho da pilha são feitos declarativamente no momento de instanciação da tarefa \\
+		\hline
+		
+		\textbf{RF03} & Cumprimento do prazo estipulado no momento de criação da tarefa caso não exista presença de falhas & Validado com os testes sem injeção de falha \\
+		\hline
+		
+		\textbf{RF04} & Dependabilidade superior à versão do sistema sem técnicas & O sistema foi capaz de mascarar algumas falhas e detectar outras. Portanto possui uma dependabilidade superior \\
+		\hline
+		
+		\textbf{RF05} & Monitoramento do número de falhas detectadas e violações de prazos & Implementado em \texttt{DeadlineWatcher} em conjunto com o IWDG. Foi capaz de detectar violações \\
+		\hline
+	\end{tabular}
+	\label{tab:verirf}
+\end{quadro}
+
+Os requisitos não funcionais também foram analisados conforme o \autoref{tab:verirnf}.
+
+\begin{quadro}[H]
+	\centering
+	\caption{Validação dos Requisitos não funcionais}
+	\begin{tabular}{|p{0.125\textwidth}|p{0.4\textwidth}|p{0.4\textwidth}|}
+		\hline
+		\rowcolor[HTML]{C0C0C0}
+		\textbf{Requisito} & \textbf{Descrição} & \textbf{Validação} \\
+		\hline
+		
+		\textbf{RNF01} & O consumo de memória deve ser pré determinado em tempo de compilação ou na inicialização do sistema & O pico de memória é estável e determinado no startup da aplicação \\
+		\hline
+		
+		\textbf{RNF02} & A interface deve ser construida sobre o escalonador preemptivo do FreeRTOS & Os mecanismos de tarefa são implementados sobre o escalonador \\
+		\hline
+		
+		\textbf{RNF03} & Deve ser compatível com arquitetura ARMv7M ou ARMv8M & O projeto compila e executa na arquitetura \\
+		\hline
+		
+		\textbf{RNF04} & Implementação realizada em C++ (versão 20 ou acima) & O projeto compila na versão C++20 com GCC e Clang\\
+		\hline
+		
+		\textbf{RNF05} & Código Fonte disponível sob licença permissíva & Validado parcialmente. O módulo de USB\_DEVICE não é compatível com uma licença BSD2 porém não é essencial apra a demonstração das técnicas. O resto do código cumpre este requisito. \\
+		\hline
+	\end{tabular}
+	\label{tab:verirnf}
+\end{quadro}
+
+\section{Discussão dos Resultados}
+
+A aplicação das técnicas resultou em um impacto positivo na dependabilidade do sistema, em particular técnicas de execução (TMR e Reexecução) em combinação com a checagem por CRC32 demonstraram a melhor dependabilidade.
+
+O custo das técnicas de execução é significativo, triplicando o tempo computacional no caso de um sistema sem multi processamento simétrico e adicionando um overhead de memória alto (mais de 3x) no caso da aplicação de TMR. Para o sistema apresentado, a reexecução em combinação com o CRC32 possui bons resultados dado seu consumo menor de memória quando comparado à técnica de TMR. 
+
+Durante injeções aleatórias no stack frame, a redundância de estado adicional do TMR contribuiu para evitar um erro fatal, indicando que talvez outros padrões de falha sejam melhor capturados e mascarados pela técnica de TMR, justificando seu custo adicional de memória. É também interessante que trabalhos futuros avaliem a técnica de TMR no contexto de multiprocessamento simétrico para analisar o potencial impacto positivo da execução paralela, dado que a técnica de TMR possui uma grande vantagem ao prover maior isolamento de estado mutável.
+
+A validação de deadline não foi ativa com frequência durante os testes, mesmo nos casos de injeções aleatórias um erro fatal via assert foi capaz de interromper a execução primeiro. Isso não significa que os testes de deadline não possuiram nenhum impacto positivo, pois foi possível detectar um deadlock de sincronização durante o desenvolvimento mais cedo graças a um disparo prematuro, porém os resultados apresentados não foram capazes de causar uma mudança significativa no tempo de execução que ativasse o monitor. Injeções de falhas que alterem mais o fluxo de controle, ou a aplicação de um programa de teste com características temporais mais sensíveis à upsets de memória talvez seja capaz de gerar mais oportunidades para a contribuição desta técnica.
+

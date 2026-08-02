@@ -1,0 +1,16 @@
+\chapter{Considerações Finais}
+\label{cap:consideracoes}
+
+Sistemas embarcados são sistemas computacionais com propósito específico e são tipicamente parte da qualidade de serviço de um todo. Tendo essas características em mente, é importante que o custo dos recursos necessários para a execução correta de um projeto sejam considerados para a viabilidade do produto final com o máximo de funcionalidade possível com o mínimo de custo de produção e custo energético.
+
+O uso de sistemas operacionais de tempo real em sistemas embarcados é popular por fornecer garantias em relação à prioridade de tarefas assim como permitir um modelo de aplicação assíncrono orientado à eventos.
+
+A dependabilidade é uma propriedade geral do sistema que combina diversos critérios (RAMS) e o aumento da dependabilidade em sistemas de natureza crítica é importante para a segurança dos usuários, outros sistemas também podem se beneficiar ao ofertar uma melhor qualidade de serviço mesmo na presença de adversidades.
+
+Com o fim de melhorar a propriedade de dependabilidade de um sistema operacional de tempo real, foram exploradas técnicas de execução, monitoramento de prazo e de checagem de integridade em cenários de falhas transientes. 
+
+Para analisar o impacto da aplicação das técnicas, foi projetado uma aplicação de teste e uma capanha de injeção de falhas. As técnicas foram implementadas na linguagem C++20 e executadas no microcontrolador STM32F411CEU6 com o sistema operacional FreeRTOS e tiveram suas métricas de performance coletadas.
+
+As técnicas demonstraram um efeito positivo da dependabilidade com diferentes custos de memória e tempo de execução. As técnicas que alteram o fluxo do programa (Reexecução e TMR) foram capazes de mascarar certas falhas em tempo real, já o uso de CRC foi capaz de permitir recomputar dados após um upset ter alterado um resultado. O monitoramento de deadlines foi importante para detectar violações do critério temporal assim como auxiliou durante o processo de desenvolvimento para o diagnóstico de erros lógicos.
+
+Para elaboração de trabalhos futuros, é interessante que a  presença de múltiplos núcleos em um sistema com multi processamento simétrico, assim como expandir a detecção de erros para incluir mecanismos de análise de fluxo de controle a nível de compilador. A campanha de injeção de falhas também poderia ser melhor automatizada com uma ferramenta de instrumentalização como o PyOCD.
