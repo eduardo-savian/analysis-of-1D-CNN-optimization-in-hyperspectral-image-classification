@@ -1,0 +1,32 @@
+# Versões exatas usadas para validar o notebook src/TCC3_SydneySouza_PyTorch.ipynb
+# Python 3.12.13 (3.12 ou 3.13 servem; os wheels abaixo existem para cp312 e cp313)
+#
+# GPU (RTX 5070 / Blackwell sm_120) — instale o torch pelo índice CUDA ANTES deste arquivo:
+#   uv pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu129
+#   uv pip install -r requirements.txt
+#
+# CPU:
+#   uv pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cpu
+#   uv pip install -r requirements.txt
+#
+# ATENÇÃO: cu126 NÃO serve para a RTX 5070 (sem kernels sm_120). Use cu129 ou cu130.
+# Detalhes e comandos completos em SETUP.md.
+
+torch==2.13.0
+
+numpy==2.5.1
+scipy==1.18.0
+scikit-learn==1.9.0
+pandas==3.0.5
+matplotlib==3.11.1
+seaborn==0.13.2
+
+# SEEDS (cv.ximgproc.createSuperpixelSEEDS) está no pacote *contrib*.
+# Não instale opencv-python junto: os dois conflitam no mesmo namespace cv2.
+# Variante 'headless' é a correta para servidor/AWS (sem libGL);
+# em desktop com GUI, troque por opencv-contrib-python==5.0.0.93.
+opencv-contrib-python-headless==5.0.0.93
+
+# Ambiente de notebook
+jupyterlab==4.6.2
+ipykernel==7.3.0
