@@ -1,4 +1,4 @@
-"""Segmentação em superpixels com SEEDS (OpenCV contrib).
+"""Segmentação em superpixels com SEEDS, SLIC e LSC (OpenCV contrib).
 
 O id do superpixel de cada pixel vira a *segunda entrada* da rede: além do
 espectro, o modelo recebe a que região homogênea aquele pixel pertence.
@@ -14,9 +14,12 @@ from dataclasses import dataclass
 import numpy as np
 
 __all__ = [
-    "SeedsParams", "SEEDS_PARAMS", "SegmentationResult", "SegmentationArtifacts",
+    "SeedsParams", "SlicParams", "LscParams", "SEEDS_PARAMS", "SLIC_PARAMS", "LSC_PARAMS",
+    "SEGMENTERS", "SegmentationResult", "SegmentationArtifacts", "segment_superpixels",
     "superpixel_labels", "contour_overlay", "colorize_segments",
 ]
+
+SEGMENTERS = ("seeds", "slic", "lsc")
 
 
 @dataclass(frozen=True)
@@ -44,6 +47,33 @@ SEEDS_PARAMS = {
     "PU": SeedsParams(),
     "SA": SeedsParams(),
 }
+
+
+@dataclass(frozen=True)
+class SlicParams:
+    """Parâmetros do SLICO do OpenCV.
+
+    ``region_size`` é o lado aproximado de cada superpixel. SLICO adapta a
+    compacidade automaticamente e, por isso, é uma boa comparação com SEEDS sem
+    introduzir mais um hiperparâmetro de cor/forma.
+    """
+
+    region_size: int = 12
+    ruler: float = 10.0
+    num_iterations: int = 10
+
+
+@dataclass(frozen=True)
+class LscParams:
+    """Parâmetros do Linear Spectral Clustering (LSC) do OpenCV."""
+
+    region_size: int = 12
+    ratio: float = 0.075
+    num_iterations: int = 10
+
+
+SLIC_PARAMS = {"IP": SlicParams(region_size=8), "PU": SlicParams(), "SA": SlicParams()}
+LSC_PARAMS = {"IP": LscParams(region_size=8), "PU": LscParams(), "SA": LscParams()}
 
 
 @dataclass(frozen=True)
@@ -89,8 +119,21 @@ class SegmentationArtifacts:
         return self.result.n_superpixels
 
 
-def superpixel_labels(rgb: np.ndarray, params: SeedsParams) -> SegmentationResult:
-    """Segmenta a composição RGB em superpixels."""
+def segment_superpixels(
+    rgb: np.ndarray,
+    algorithm: str,
+    params: SeedsParams | SlicParams | LscParams,
+) -> SegmentationResult:
+    """Segmenta RGB com o algoritmo escolhido e devolve labels/contornos puros.
+
+    Args:
+        rgb: Composição uint8 ``(H, W, 3)`` construída das componentes de PCA.
+        algorithm: ``seeds``, ``slic`` (SLICO) ou ``lsc``.
+        params: Dataclass correspondente ao algoritmo e à cena.
+
+    Todas as variantes são superpixels do ``cv.ximgproc``. A saída uniforme
+    permite comparar algoritmos sem alterar DataLoader, modelo ou métricas.
+    """
     import cv2 as cv
 
     if not hasattr(cv, "ximgproc"):
@@ -98,14 +141,42 @@ def superpixel_labels(rgb: np.ndarray, params: SeedsParams) -> SegmentationResul
             "cv.ximgproc ausente: instale opencv-contrib-python-headless "
             "(o pacote opencv-python comum não traz o SEEDS)."
         )
-    height, width, channels = rgb.shape
-    seeds = cv.ximgproc.createSuperpixelSEEDS(
-        width, height, channels,
-        params.num_superpixels, params.num_levels, params.prior,
-        params.num_histogram_bins, params.double_step,
+    if algorithm == "seeds":
+        if not isinstance(params, SeedsParams):
+            raise TypeError("SEEDS requer SeedsParams.")
+        height, width, channels = rgb.shape
+        segmenter = cv.ximgproc.createSuperpixelSEEDS(
+            width, height, channels,
+            params.num_superpixels, params.num_levels, params.prior,
+            params.num_histogram_bins, params.double_step,
+        )
+    elif algorithm == "slic":
+        if not isinstance(params, SlicParams):
+            raise TypeError("SLIC requer SlicParams.")
+        segmenter = cv.ximgproc.createSuperpixelSLIC(
+            rgb, algorithm=cv.ximgproc.SLICO, region_size=params.region_size, ruler=params.ruler,
+        )
+    elif algorithm == "lsc":
+        if not isinstance(params, LscParams):
+            raise TypeError("LSC requer LscParams.")
+        segmenter = cv.ximgproc.createSuperpixelLSC(rgb, region_size=params.region_size, ratio=params.ratio)
+    else:
+        raise ValueError(f"segmentador inválido: {algorithm!r}. Use um de {SEGMENTERS}.")
+
+    # A API do SEEDS recebe a imagem em cada ``iterate``; SLIC/LSC recebem a
+    # imagem no construtor e aceitam somente o número de iterações.
+    if algorithm == "seeds":
+        segmenter.iterate(rgb, params.num_iterations)
+    else:
+        segmenter.iterate(params.num_iterations)
+    return SegmentationResult(
+        labels=segmenter.getLabels(), contour_mask=segmenter.getLabelContourMask(False),
     )
-    seeds.iterate(rgb, params.num_iterations)
-    return SegmentationResult(labels=seeds.getLabels(), contour_mask=seeds.getLabelContourMask(False))
+
+
+def superpixel_labels(rgb: np.ndarray, params: SeedsParams) -> SegmentationResult:
+    """Compatibilidade com a API anterior: executa especificamente SEEDS."""
+    return segment_superpixels(rgb, "seeds", params)
 
 
 def contour_overlay(rgb: np.ndarray, segmentation) -> dict[str, np.ndarray]:

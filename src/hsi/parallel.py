@@ -4,7 +4,7 @@ Depois do PCA, os dois ramos do pipeline são independentes até o ponto de fus�
 
 - **ramo espectral**: PCA para `config.pca_components` bandas sobre os pixels válidos;
 - **ramo espacial**: PCA de 3 componentes sobre a cena inteira, composição RGB e
-  segmentação SEEDS.
+  segmentação SEEDS, SLIC ou LSC.
 
 Nenhum precisa do resultado do outro — só a fusão (montar a segunda entrada da rede)
 precisa dos dois. Executá-los concorrentemente troca `T_espectral + T_espacial` por
@@ -41,7 +41,11 @@ from .config import ExperimentConfig
 from .data import Scene, load_scene, remove_background, to_pixel_table
 from .dataset import PreparedData, split_indices
 from .preprocess import apply_pca, rgb_composite
-from .segmentation import SEEDS_PARAMS, SegmentationArtifacts, SeedsParams
+from .patches import spatial_patches, spectral_spatial_patches
+from .segmentation import (
+    LSC_PARAMS, SEEDS_PARAMS, SLIC_PARAMS, SegmentationArtifacts, LscParams,
+    SeedsParams, SlicParams,
+)
 
 __all__ = ["BACKENDS", "StageTimings", "prepare_data_parallel", "spectral_branch", "spatial_branch"]
 
@@ -92,30 +96,37 @@ def spatial_branch(
     pixels: np.ndarray,
     raw_labels: np.ndarray,
     scene_shape: tuple[int, int],
-    params: SeedsParams,
+    params: SeedsParams | SlicParams | LscParams,
     seed: int,
+    segmenter: str = "seeds",
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Ramo espacial: PCA de 3 componentes -> RGB -> SEEDS -> id por pixel válido.
+    """Ramo espacial: PCA de 3 componentes -> RGB -> superpixels -> id válido.
 
-    A segmentação roda sobre a cena **inteira**, background incluído, porque o SEEDS
-    precisa da imagem completa; o filtro de background vem depois.
+    A segmentação roda sobre a cena **inteira**, background incluído, porque os
+    superpixels precisam da imagem completa; o filtro de background vem depois.
 
     Função de módulo (e não closure) porque precisa ser serializável para o backend
     de processos.
     """
     components, _ = apply_pca(pixels, n_components=3, random_state=seed)
     rgb = rgb_composite(components, scene_shape)
-    segmentation = superpixel_labels_for(rgb, params)
+    segmentation = superpixel_labels_for(rgb, segmenter, params)
 
     ids_valid, _ = remove_background(segmentation.labels.reshape(-1, 1), raw_labels)
     return ids_valid.reshape(-1), components, rgb, segmentation
 
 
-def superpixel_labels_for(rgb, params):
+def superpixel_labels_for(rgb, segmenter, params):
     """Indireção fina só para manter o import do OpenCV dentro do worker."""
-    from .segmentation import superpixel_labels
+    from .segmentation import segment_superpixels
 
-    return superpixel_labels(rgb, params)
+    return segment_superpixels(rgb, segmenter, params)
+
+
+def _segmenter_params(config: ExperimentConfig):
+    """Seleciona os parâmetros da cena sem acoplar o pipeline a um algoritmo."""
+    tables = {"seeds": SEEDS_PARAMS, "slic": SLIC_PARAMS, "lsc": LSC_PARAMS}
+    return tables[config.segmenter][config.dataset]
 
 
 def _timed(fn, *args):
@@ -132,8 +143,9 @@ def prepare_data_parallel(
 ) -> tuple[PreparedData, SegmentationArtifacts | None, StageTimings]:
     """`prepare_data` com os dois ramos executados concorrentemente.
 
-    Devolve `(dados, artefatos_da_segmentação, tempos)`. Com `two_input=False` não
-    há ramo espacial e o backend é irrelevante — só o ramo espectral roda.
+    Devolve `(dados, artefatos_da_segmentação, tempos)`. Com `two_input=False`,
+    CNN1D/CNN3D não precisam do ramo espacial; CNN2D ainda o executa para formar
+    seus patches PCA, mas não concatena ids de superpixel.
     """
     if backend not in BACKENDS:
         raise ValueError(f"backend inválido: {backend!r}. Use um de {BACKENDS}.")
@@ -143,12 +155,18 @@ def prepare_data_parallel(
     spectra, labels = remove_background(pixels, raw_labels)
 
     timings = StageTimings(backend=backend)
-    spatial_args = (pixels, raw_labels, scene.shape, SEEDS_PARAMS[config.dataset], config.seed)
+    spatial_args = (
+        pixels, raw_labels, scene.shape, _segmenter_params(config), config.seed, config.segmenter,
+    )
     spectral_args = (spectra, config.pca_components, config.seed)
 
     started = time.perf_counter()
 
-    if not config.two_input:
+    # CNN2D depende das componentes PCA espaciais para construir seus patches,
+    # mesmo quando a fusão por id de superpixel está desativada.
+    needs_spatial_branch = config.two_input or config.model_type == "cnn2d"
+
+    if not needs_spatial_branch:
         reduced, timings.stages["espectral"] = _timed(spectral_branch, *spectral_args)
         segments, artifacts = None, None
 
@@ -177,12 +195,26 @@ def prepare_data_parallel(
 
     timings.wall = time.perf_counter() - started
 
+    # CNN2D pode precisar do ramo espacial para formar patches mesmo numa ablação
+    # sem fusão. Nesse caso os artefatos visuais existem, mas o id não deve entrar
+    # no TensorDataset nem ser registrado como segunda entrada do modelo.
+    if not config.two_input:
+        segments = None
+
     data = PreparedData(
         spectra=reduced,
         labels=labels.astype(np.int64),
         segments=segments,
         splits=split_indices(labels, config.test_ratio, config.valid_ratio, config.seed),
         scene_shape=scene.shape,
+        patches_2d=(
+            spatial_patches(artifacts.components, scene.shape, scene.labels, config.patch_size)
+            if config.model_type == "cnn2d" and artifacts is not None else None
+        ),
+        patches_3d=(
+            spectral_spatial_patches(scene.image, scene.labels, config.patch_size)
+            if config.model_type == "cnn3d" else None
+        ),
     )
     return data, artifacts, timings
 
