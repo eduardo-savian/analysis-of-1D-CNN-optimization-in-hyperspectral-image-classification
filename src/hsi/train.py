@@ -122,27 +122,60 @@ class TrainResult:
         return "\n".join(linhas)
 
 
-def run_epoch(model, loader: DataLoader, criterion, device, optimizer=None) -> tuple[float, float]:
+def run_epoch(
+    model,
+    loader: DataLoader,
+    criterion,
+    device,
+    optimizer=None,
+    gradient_accumulation_steps: int = 1,
+) -> tuple[float, float]:
     """Uma passagem completa sobre o loader.
 
     `optimizer=None` faz a passagem ser só de avaliação: sem backward, sem passo
     do otimizador e com o modelo em modo `eval` (dropout desligado).
+
+    Quando ``gradient_accumulation_steps > 1``, cada batch contribui com sua soma
+    de gradientes e a janela é normalizada pelo número **real** de amostras antes
+    de ``optimizer.step``. Assim a última janela, que pode ser menor, continua
+    equivalente a um batch concatenado. Com valor 1 o caminho numérico original
+    é preservado, mantendo a reprodutibilidade do baseline.
     """
+    if gradient_accumulation_steps < 1:
+        raise ValueError("gradient_accumulation_steps deve ser ao menos 1.")
+
     training = optimizer is not None
     model.train(training)
 
     total_loss, total_correct, total = 0.0, 0, 0
+    samples_in_window = 0
+    if training:
+        optimizer.zero_grad(set_to_none=True)
     with torch.set_grad_enabled(training):
-        for batch in loader:
+        for batch_index, batch in enumerate(loader, start=1):
             x, seg, y = unpack_batch(batch, device)
 
             logits = model(x, seg)
             loss = criterion(logits, y)
 
             if training:
-                optimizer.zero_grad(set_to_none=True)
-                loss.backward()
-                optimizer.step()
+                if gradient_accumulation_steps == 1:
+                    # Mantém exatamente o caminho numérico do baseline.
+                    loss.backward()
+                else:
+                    # CrossEntropyLoss devolve a média do batch. Acumulamos a
+                    # soma e normalizamos uma vez pelo total real da janela; isso
+                    # também trata corretamente a última janela incompleta.
+                    (loss * y.size(0)).backward()
+                    samples_in_window += y.size(0)
+                if batch_index % gradient_accumulation_steps == 0 or batch_index == len(loader):
+                    if gradient_accumulation_steps > 1:
+                        for parameter in model.parameters():
+                            if parameter.grad is not None:
+                                parameter.grad.div_(samples_in_window)
+                    optimizer.step()
+                    optimizer.zero_grad(set_to_none=True)
+                    samples_in_window = 0
 
             total_loss += loss.item() * y.size(0)
             total_correct += (logits.argmax(dim=1) == y).sum().item()
@@ -152,7 +185,13 @@ def run_epoch(model, loader: DataLoader, criterion, device, optimizer=None) -> t
 
 
 def fit(model, loaders, criterion, optimizer, config, device, verbose: bool = True) -> TrainResult:
-    """Treina até `config.epochs` ou até a parada antecipada em `val_loss`."""
+    """Treina, valida, mede tempo e aplica parada antecipada.
+
+    Cada época faz uma passagem de treino, outra de validação e sincroniza CUDA
+    antes de medir duração. A acumulação pertence somente ao treino; validação
+    sempre mede os logits do modelo sem gradientes. O retorno preserva todo o
+    histórico necessário para curvas e para ``metrics.json``.
+    """
     # Repõe a semente do gerador do loader de treino: criar um iterador sobre ele
     # (inspecionar um batch, por exemplo) sorteia uma permutação e adianta o estado.
     # Sem isso, olhar os dados antes de treinar mudaria a ordem dos batches — e o
@@ -169,7 +208,10 @@ def fit(model, loaders, criterion, optimizer, config, device, verbose: bool = Tr
     started = time.perf_counter()
     for epoch in range(1, config.epochs + 1):
         epoch_start = time.perf_counter()
-        train_loss, train_acc = run_epoch(model, loaders["train"], criterion, device, optimizer)
+        train_loss, train_acc = run_epoch(
+            model, loaders["train"], criterion, device, optimizer,
+            gradient_accumulation_steps=config.gradient_accumulation_steps,
+        )
         val_loss, val_acc = run_epoch(model, loaders["val"], criterion, device)
         if device.type == "cuda":
             torch.cuda.synchronize()

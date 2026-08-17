@@ -17,7 +17,7 @@ import numpy as np
 
 from .config import ExperimentConfig
 from .data import Scene
-from .dataset import PreparedData, build_loaders
+from .dataset import PreparedData, build_loaders, validate_prepared_data
 from .env import configure_determinism, seed_everything, select_device
 from .evaluate import Metrics, evaluate
 from .model import build_model
@@ -57,6 +57,8 @@ class ExperimentResult:
     predicted: np.ndarray
     device: object
     prep_timings: StageTimings
+    #: Resultado do contrato de dados validado antes de construir DataLoaders.
+    data_contract: dict
 
 
 def run_experiment(
@@ -72,6 +74,7 @@ def run_experiment(
     configure_determinism(config.deterministic, verbose=verbose)
 
     data, _, prep_timings = prepare_data_parallel(config, data_dir, backend=backend)
+    data_contract = validate_prepared_data(data)
     if verbose:
         print("\n" + config.summary())
         print("Amostras:", data.splits.sizes(), "| classes:", data.n_classes)
@@ -82,7 +85,11 @@ def run_experiment(
     # A semente é reposta imediatamente antes de construir o modelo: são os pesos
     # iniciais que dependem do RNG global do PyTorch.
     seed_everything(config.seed)
-    model, criterion, optimizer = build_model(config, data.n_features, data.n_classes, device)
+    # Cada arquitetura declara seu próprio layout: 1D=(1,Kb), 2D=(3,P,P) e
+    # 3D=(1,B,P,P). O modelo nunca precisa inferir ou rearranjar dados sozinho.
+    model, criterion, optimizer = build_model(
+        config, data.input_shape(config.model_type), data.n_classes, device,
+    )
     if verbose:
         print("\nParâmetros treináveis:", model.n_parameters)
 
@@ -106,4 +113,5 @@ def run_experiment(
         predicted=predicted,
         device=device,
         prep_timings=prep_timings,
+        data_contract=data_contract,
     )

@@ -13,21 +13,34 @@ Conv1d e a lógica do early stopping.
 from __future__ import annotations
 
 import sys
+import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 import numpy as np
 import torch
+from torch.utils.data import DataLoader, TensorDataset
 
-from hsi import CNN1D, ExperimentConfig, PreparedData, Splits, build_loaders, remove_background, split_indices
+from hsi import (
+    CNN1D, CNN2D, CNN3D, ExperimentConfig, PreparedData, Splits, array_fingerprint, build_loaders,
+    create_run, data_fingerprint, remove_background, split_indices, validate_prepared_data,
+)
+from hsi.registry import promote_candidate
+from hsi.tracking import RunContext
 from hsi.config import PCA_COMPONENTS
 from hsi.data import Scene, to_pixel_table
 from hsi.evaluate import binary_readout, _average_accuracy
 from hsi.parallel import BACKENDS, StageTimings, spatial_branch, spectral_branch
 from hsi.preprocess import mat2gray, rgb_composite
-from hsi.segmentation import SEEDS_PARAMS, SegmentationArtifacts, SegmentationResult
-from hsi.train import EarlyStopping, History, unpack_batch
+from hsi.patches import extract_patches
+from hsi.segmentation import (
+    LSC_PARAMS, SLIC_PARAMS, SEGMENTERS, SEEDS_PARAMS, SegmentationArtifacts,
+    SegmentationResult, segment_superpixels,
+)
+from hsi.checkpoint import load_checkpoint, save_checkpoint
+from hsi.train import EarlyStopping, History, run_epoch, unpack_batch
 from hsi.variants import BASELINE, OPTIMIZED, VARIANTS
 
 
@@ -147,6 +160,41 @@ def test_cnn_forward_uma_e_duas_entradas():
     raise AssertionError("modelo de duas entradas deveria exigir o tensor de segmentação")
 
 
+def test_cnn_2d_e_3d_preservam_batch_e_classes():
+    seg = torch.zeros(3, 1)
+    assert CNN2D(in_channels=3, classes=4)(torch.zeros(3, 3, 5, 5)).shape == (3, 4)
+    assert CNN2D(in_channels=3, classes=4, two_input=True)(torch.zeros(3, 3, 5, 5), seg).shape == (3, 4)
+    assert CNN3D(classes=4)(torch.zeros(3, 1, 20, 5, 5)).shape == (3, 4)
+    assert CNN3D(classes=4, two_input=True)(torch.zeros(3, 1, 20, 5, 5), seg).shape == (3, 4)
+
+
+def test_checkpoint_reconstroi_cnn_2d_e_3d():
+    """O artefato precisa carregar a arquitetura certa fora do processo de treino."""
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "model.pt"
+        config_2d = ExperimentConfig(model_type="cnn2d")
+        model_2d = CNN2D(3, 4, two_input=True)
+        save_checkpoint(model_2d, config_2d, (3, 5, 5), 4, path)
+        restored_2d, metadata_2d = load_checkpoint(path)
+        assert isinstance(restored_2d, CNN2D) and metadata_2d["model_type"] == "cnn2d"
+
+        config_3d = ExperimentConfig(model_type="cnn3d", two_input=False)
+        model_3d = CNN3D(4)
+        save_checkpoint(model_3d, config_3d, (1, 20, 5, 5), 4, path)
+        restored_3d, metadata_3d = load_checkpoint(path)
+        assert isinstance(restored_3d, CNN3D) and metadata_3d["model_type"] == "cnn3d"
+
+
+def test_extract_patches_mantem_ordem_dos_pixels_rotulados():
+    cube = np.arange(3 * 3 * 2).reshape(3, 3, 2)
+    labels = np.array([[0, 1, 0], [2, 0, 0], [0, 0, 3]])
+    patches = extract_patches(cube, labels, patch_size=3)
+    assert patches.shape == (3, 2, 3, 3)
+    assert patches[0, :, 1, 1].tolist() == cube[0, 1].tolist()
+    assert patches[1, :, 1, 1].tolist() == cube[1, 0].tolist()
+    assert patches[2, :, 1, 1].tolist() == cube[2, 2].tolist()
+
+
 def test_cnn_usa_inicializacao_xavier():
     """Xavier/Glorot nos pesos e zero nos biases — não o padrão do PyTorch."""
     modelo = CNN1D(seq_len=15, classes=9)
@@ -222,6 +270,26 @@ def test_unpack_batch_cobre_um_e_dois_tensores():
     assert seg is None
 
 
+def test_acumulacao_de_gradiente_iguala_batch_efetivo():
+    """Duas janelas de 2 devem atualizar como um batch de 4, inclusive no fim."""
+    torch.manual_seed(9)
+    direct = CNN1D(seq_len=15, classes=3, dropout=0.0)
+    accumulated = CNN1D(seq_len=15, classes=3, dropout=0.0)
+    accumulated.load_state_dict(direct.state_dict())
+    x = torch.randn(4, 1, 15)
+    y = torch.tensor([0, 1, 2, 1])
+    criterion = torch.nn.CrossEntropyLoss()
+    direct_optimizer = torch.optim.SGD(direct.parameters(), lr=0.01)
+    accumulated_optimizer = torch.optim.SGD(accumulated.parameters(), lr=0.01)
+    run_epoch(direct, DataLoader(TensorDataset(x, y), batch_size=4), criterion, torch.device("cpu"), direct_optimizer)
+    run_epoch(
+        accumulated, DataLoader(TensorDataset(x, y), batch_size=2), criterion, torch.device("cpu"),
+        accumulated_optimizer, gradient_accumulation_steps=2,
+    )
+    for expected, actual in zip(direct.parameters(), accumulated.parameters()):
+        assert torch.allclose(expected, actual, atol=1e-6)
+
+
 def test_average_accuracy_pesa_classes_igualmente():
     """Classe minoritária ruim derruba a AA sem derrubar a OA."""
     confusion = np.array([[99, 1], [8, 2]])
@@ -283,6 +351,17 @@ def test_build_loaders_nao_embaralha_val_e_test():
     assert np.array_equal(y, data.labels[data.splits.test]), "ordem do teste deve casar com y_true"
 
 
+def test_build_loaders_aceita_batch_de_avaliacao_maior():
+    config = ExperimentConfig(batch_size=2, eval_batch_size=8)
+    data = PreparedData(
+        spectra=np.zeros((16, 15)), labels=np.repeat(np.arange(4), 4).astype(np.int64), segments=None,
+        splits=Splits(train=np.arange(8), val=np.arange(8, 12), test=np.arange(12, 16)), scene_shape=(4, 4),
+    )
+    loaders = build_loaders(data, config, torch.device("cpu"))
+    assert loaders["train"].batch_size == 2
+    assert loaders["val"].batch_size == loaders["test"].batch_size == 8
+
+
 def test_config_valida_dataset_e_deriva_pca():
     for code, expected in PCA_COMPONENTS.items():
         assert ExperimentConfig(dataset=code).pca_components == expected
@@ -293,6 +372,83 @@ def test_config_valida_dataset_e_deriva_pca():
     except ValueError:
         return
     raise AssertionError("dataset inválido deveria falhar cedo")
+
+
+def test_config_expoe_batch_efetivo():
+    config = ExperimentConfig(batch_size=64, eval_batch_size=128, gradient_accumulation_steps=4)
+    assert config.effective_batch_size == 256
+    assert config.resolved_eval_batch_size == 128
+    assert ExperimentConfig(batch_size=64).resolved_eval_batch_size == 64
+
+
+def test_config_valida_modelo_segmentador_e_patch():
+    assert ExperimentConfig(model_type="cnn2d", segmenter="slic").model_type == "cnn2d"
+    assert set(SEGMENTERS) == {"seeds", "slic", "lsc"}
+    for kwargs in ({"model_type": "cnn9d"}, {"segmenter": "wat"}, {"patch_size": 4}):
+        try:
+            ExperimentConfig(**kwargs)
+        except ValueError:
+            continue
+        raise AssertionError(f"configuração inválida deveria falhar: {kwargs}")
+
+
+def test_contrato_de_dados_rejeita_split_incompleto():
+    data = PreparedData(
+        spectra=np.zeros((4, 15)), labels=np.array([0, 0, 1, 1]), segments=None,
+        splits=Splits(train=np.array([0, 1]), val=np.array([2]), test=np.array([3])), scene_shape=(2, 2),
+    )
+    assert validate_prepared_data(data)["valid"]
+    invalid = PreparedData(data.spectra, data.labels, None,
+                           Splits(train=np.array([0, 1]), val=np.array([2]), test=np.array([2])), (2, 2))
+    try:
+        validate_prepared_data(invalid)
+    except ValueError as error:
+        assert "particionar" in str(error)
+        return
+    raise AssertionError("split com repetição deveria falhar")
+
+
+def test_registry_promove_apenas_metrica_melhor_e_comparavel():
+    config = ExperimentConfig(dataset="PU", model_type="cnn1d")
+    with tempfile.TemporaryDirectory() as directory:
+        root, run_dir = Path(directory), Path(directory) / "run"
+        run_dir.mkdir()
+        checkpoint = run_dir / "model.pt"
+        checkpoint.touch()
+        context = RunContext("run-1", run_dir)
+        result = SimpleNamespace(
+            config=config,
+            metrics=SimpleNamespace(overall_accuracy=0.90, average_accuracy=0.80, kappa=0.85),
+        )
+        first = promote_candidate(context, result, checkpoint, root)
+        assert first.promoted
+        worse = promote_candidate(context, result, checkpoint, root)
+        assert not worse.promoted
+        other = SimpleNamespace(
+            config=ExperimentConfig(dataset="PU", model_type="cnn2d"),
+            metrics=SimpleNamespace(overall_accuracy=0.99, average_accuracy=0.99, kappa=0.99),
+        )
+        # CNN2D cria outra família no registry, em vez de sobrescrever CNN1D.
+        assert promote_candidate(context, other, checkpoint, root).promoted
+
+
+def test_tracking_fingerprint_muda_com_conteudo_e_registra_inicio():
+    first = np.array([[1, 2], [3, 4]], dtype=np.float32)
+    second = first.copy()
+    second[0, 0] = 0
+    assert array_fingerprint(first) == array_fingerprint(first.copy())
+    assert array_fingerprint(first) != array_fingerprint(second)
+
+    data = PreparedData(
+        spectra=first, labels=np.array([0, 1]), segments=None,
+        splits=Splits(train=np.array([0]), val=np.array([1]), test=np.array([], dtype=int)), scene_shape=(1, 2),
+    )
+    fingerprint = data_fingerprint(data)
+    assert fingerprint["spectra"]["sha256"] == array_fingerprint(first)
+    with tempfile.TemporaryDirectory() as directory:
+        run = create_run(ExperimentConfig(), Path(directory))
+        assert (run.directory / "config.json").exists()
+        assert (run.directory / "environment.json").exists()
 
 
 # --- paralelismo ------------------------------------------------------------
@@ -338,6 +494,14 @@ def test_segmentation_artifacts_expoe_o_resultado():
     assert art.n_superpixels == 2
     assert np.array_equal(art.labels, labels)
     assert art.contour_mask.shape == (4, 4)
+
+
+def test_slic_e_lsc_devolvem_mapa_de_superpixels():
+    rgb = np.zeros((40, 40, 3), dtype=np.uint8)
+    for name, params in (("slic", SLIC_PARAMS["PU"]), ("lsc", LSC_PARAMS["PU"])):
+        result = segment_superpixels(rgb, name, params)
+        assert result.labels.shape == rgb.shape[:2]
+        assert result.contour_mask.shape == rgb.shape[:2]
 
 
 def test_stage_timings_calcula_soma_e_overhead():
