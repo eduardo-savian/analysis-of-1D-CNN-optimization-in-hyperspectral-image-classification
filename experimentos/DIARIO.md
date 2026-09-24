@@ -485,6 +485,35 @@ propósito. O invariante que protege o experimento é a **disjunção** (nenhuma
 duas partições), não a cobertura. Trocada a checagem; o contrato agora reporta
 `coverage`.
 
+**LSC não-determinístico, e o estrago que causou (24/09).** O `createSuperpixelLSC`
+do OpenCV é paralelizado e seu desempate depende da ordem das threads: duas chamadas
+com a **mesma imagem e os mesmos parâmetros** devolviam rótulos diferentes em ~390
+pixels de Indian Pines. SEEDS, SLIC e Watershed não têm o problema.
+
+A consequência era silenciosa e cara. Com o LSC no espaço de busca, o score de um
+mesmo trial variava entre execuções, e as estratégias adaptativas amplificavam a
+variação até trocarem de vencedor: **a mesma campanha de TPE deu 0,8713 numa execução
+e 0,7711 em outra.** Duas execuções seguidas no mesmo processo davam 0,8440 e 0,8713.
+
+Como foi rastreado, e a ordem importa:
+
+1. Treino com config fixa: **determinístico** (idêntico até 1e-6, com 16 e com 1 thread).
+2. Amostradores com scores fixos: **os três reprodutíveis** (random, TPE, genético).
+3. Logo o problema estava nos *scores* → comparar a saída dos segmentadores.
+4. Segmentação chamada duas vezes: **LSC difere em 388 pixels**; os outros três, zero.
+
+Correção: `cv.setNumThreads(1)`, chamado por `configure_opencv_determinism()` dentro
+de `configure_determinism`. **Custo nulo** — 38,6 ms por segmentação com uma thread
+contra 39,1 ms com 32; as cenas são pequenas demais para a paralelização compensar.
+
+Verificado depois da correção: LSC idêntico em duas execuções e TPE reproduzindo
+trial a trial.
+
+**O que isso invalida.** Qualquer medição anterior a 24/09 que envolva LSC ou
+estratégia adaptativa. O ranking de estratégias da entrada 4 e os números de LSC da
+entrada 9 precisam ser refeitos. Os resultados de SEEDS, SLIC e Watershed sem busca
+adaptativa continuam válidos.
+
 **`pkill -f` matando o próprio shell (17/09).** `pkill -9 -f "06_segmentadores"` casou
 com a linha de comando do bash que o executava, e o comando morreu antes de relançar o
 experimento. Usar `setsid` para lançar e padrões específicos para matar.
@@ -520,11 +549,16 @@ data, caso precise ser recuperado.
 4. **O teto teórico transforma um resultado fraco em resultado.** 1,22× parece pouco;
    1,22× contra teto de 1,21× é a implementação no limite.
 5. **Scripts e resultados no repositório.** Três perdas em três sessões.
-6. **Nunca comparar B mantendo A fixo, quando A e B são otimizados juntos no uso
+6. **Antes de culpar o método, verifique se a medição é reprodutível.** Passei
+   duas sessões achando que o ranking de estratégias era instável por natureza. Era
+   uma biblioteca não-determinística. A bissecção que achou — treino → amostrador →
+   scores → segmentador — é o procedimento a repetir: isole camada por camada, de
+   fora para dentro.
+7. **Nunca comparar B mantendo A fixo, quando A e B são otimizados juntos no uso
    real.** Foi o corte do Felipe em 17/09, e os dados provaram: com CNN fixa o SLIC em
    Pavia dava Kappa 0,0346 (aleatório); com hiperparâmetros próprios, sobe. A pergunta
    certa é sempre "qual é o melhor resultado que X alcança quando o resto é ajustado
    para ele".
-7. **Toda afirmação carrega o regime em que foi medida.** O ganho da técnica de memória
+8. **Toda afirmação carrega o regime em que foi medida.** O ganho da técnica de memória
    é marginal em CNN1D e decisivo em CNN3D; a vantagem do hipertunador aparece com 10%
    de treino e some com 100%. Citar o número sem o regime é meio-erro.
