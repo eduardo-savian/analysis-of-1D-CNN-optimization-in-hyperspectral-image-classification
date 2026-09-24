@@ -463,95 +463,6 @@ segmentadores. Não há saída limpa ainda — registrar como limitação no TCC
 
 ---
 
-## 10. Arquitetura × segmentador — 17/09
-
-**Pergunta.** Qual combinação de arquitetura e segmentador entrega o melhor
-resultado, quando cada combinação recebe seus próprios hiperparâmetros?
-
-**Critério.** O mesmo princípio da entrada 9, agora em duas dimensões. Não faz
-sentido comparar arquiteturas com hiperparâmetros fixos pelo mesmo motivo que não
-fazia para segmentadores: mede-se o quanto aquele conjunto por acaso serve, não o que
-a arquitetura consegue entregar. **Cada célula da matriz (3 arquiteturas × 5
-condições) recebe sua própria busca**, com orçamento idêntico de 16 trials, e só
-depois os vencedores são comparados.
-
-Dois eixos entram automaticamente: `patch_size` volta ao espaço para CNN2D e CNN3D
-(a CNN1D não usa contexto espacial e o `hpo_search_space` já o remove de lá), e o
-piso de componentes de PCA só se aplica à CNN1D.
-
-**Custo medido antes de lançar** (IP, 10% de treino, 30 épocas, 1 trial):
-
-| Arquitetura | Prep | Treino | Retido por trial | OA |
-|---|---|---|---|---|
-| cnn1d | 0,19 s | 3,65 s | 3,3 MB | 0,7490 |
-| cnn2d | 0,24 s | 3,19 s | 5,8 MB | 0,6515 |
-| cnn3d | 0,16 s | 5,18 s | **207,7 MB** | 0,3927 |
-
-**Status:** em execução (`07_arquiteturas_x_segmentadores.py IP`), 315 execuções.
-
-**Hipótese a verificar.** A CNN3D deu 0,3927 com 30 épocas. Ela tem muito mais
-capacidade, e 871 amostras de treino provavelmente não a sustentam. Se a matriz
-confirmar, o resultado não é "CNN1D é melhor" e sim **"CNN1D é a única compatível com
-10% de treino"** — e aí vale repetir a comparação de arquiteturas com
-`train_fraction=1.0`, para separar as duas afirmações.
-
-**Registro de escopo.** Em 17/09 o escopo foi restrito a CNN1D e depois reaberto para
-as três arquiteturas, na mesma sessão. Consequência importante: **a justificativa da
-técnica de memória (entrada 5) depende do escopo.** Com CNN1D só, o ganho é marginal
-(3,3 MB por trial). Com CNN3D, `release_result` volta a ser requisito — 16 trials
-reteriam 3,3 GB em Indian Pines, e em Salinas o array é 2,21 GB por trial. Ao citar o
-número, dizer em qual regime ele vale.
-
----
-
-## 11. Arquiteturas 2D e 3D: medidas, e depois retiradas do escopo — 24/09
-
-**Resultado completo da matriz em Indian Pines** (`07_arquiteturas.csv`, 15 células,
-cada uma com HPO próprio de 16 trials + 5 sementes):
-
-| Condição | CNN1D | CNN2D | CNN3D |
-|---|---|---|---|
-| sem fusão | 0,6772 | **0,8713** | 0,2393 |
-| seeds | **0,8174** | 0,8611 | **0,5204** |
-| slic | 0,6411 | **0,8806** | 0,4187 |
-| lsc | 0,7316 | 0,8629 | 0,4229 |
-| watershed | 0,5646 | 0,8364 | 0,3059 |
-
-Ganho da fusão sobre o piso de cada arquitetura, em pontos percentuais:
-
-| Condição | CNN1D | CNN2D | CNN3D |
-|---|---|---|---|
-| seeds | **+14,02** | −1,01 | +28,11 |
-| lsc | +5,44 | −0,83 | +18,36 |
-| slic | −3,62 | +0,94 | +17,95 |
-| watershed | −11,26 | −3,49 | +6,66 |
-
-**O achado, e por que ele incomoda.** A fusão por superpixel substitui contexto
-espacial que a arquitetura não tem. Para a CNN2D, que já recebe patches espaciais,
-**a fusão não acrescenta nada** — três dos quatro segmentadores pioram e o melhor dá
-+0,94 pp. Para a CNN1D, que vê um pixel isolado, o mesmo SEEDS dá +14,02 pp.
-
-Consequência: **a CNN2D sem segmentação nenhuma (0,8713) supera a CNN1D com o melhor
-segmentador (0,8174)**, e com metade dos parâmetros (18.736 contra 38.032). O melhor
-absoluto da matriz foi CNN2D + SLIC, OA 0,8806 ± 0,0200.
-
-**A CNN3D sem fusão está degenerada**: OA 0,2393, AA 0,0625 (exatamente 1/16), Kappa
-0,0000, desvio **zero** nas cinco sementes — ela prevê uma única classe. Com 871
-amostras de treino não sai do lugar. O ganho de +28,11 pp do SEEDS parte desse piso
-degenerado e **não é comparável** aos +14,02 da CNN1D, que parte de um modelo que
-funciona.
-
-**Decisão de escopo (24/09).** O trabalho voltou a ser só CNN1D — é o que está no
-título do TCC. O código de CNN2D e CNN3D foi removido do notebook. Esta entrada existe
-para que o resultado não se perca junto com o código: **se a banca perguntar "por que
-não uma CNN 2D?", a resposta medida é que ela é melhor nesta cena, e que a fusão por
-superpixel perde sentido nela.** Isso é limitação a declarar, não resultado a esconder.
-
-Reproduzir exige recuperar as classes do histórico do git (commit anterior a 24/09) —
-os números estão em `resultados/07_arquiteturas.csv`.
-
----
-
 ## Bugs encontrados nos próprios experimentos
 
 Registrados porque cada um quase contaminou um resultado em silêncio.
@@ -586,13 +497,16 @@ experimento. Usar `setsid` para lançar e padrões específicos para matar.
 |---|---|
 | Exp1 — Baseline | sai da condição "sem fusão" do experimento 8 |
 | Exp2 — Otimização de segmentação | experimento 8, em execução |
-| Exp3 — Otimização de CNN | feito em IP/CNN1D; PU e SA em execução |
-| Exp4 — Otimização conjunta | entradas 9 e 10 — é exatamente isto |
+| Exp3 — Otimização de CNN | feito em IP; PU e SA em execução |
+| Exp4 — Otimização conjunta | entrada 9 — é exatamente isto |
 | Exp5 — Paralelização | feito nas três cenas |
-| Comparação de arquiteturas | entrada 10, em execução (IP) |
 
-**O que falta:** PU e SA para as três arquiteturas, e a decisão sobre repetir a
-comparação de arquiteturas com 100% de treino (ver hipótese da entrada 10).
+**Escopo (24/09).** O trabalho é só CNN1D, como no título do TCC. O código de CNN2D e
+CNN3D foi removido do notebook; está no histórico do git, no commit anterior a esta
+data, caso precise ser recuperado.
+
+**O que falta:** fechar PU e SA, e decidir sobre a validação cruzada por região
+(entrada 3).
 
 ---
 
