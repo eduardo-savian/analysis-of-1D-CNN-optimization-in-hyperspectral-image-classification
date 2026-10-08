@@ -48,16 +48,24 @@ EC = ns["ExperimentConfig"]
 
 TRIALS = 20
 ORCAMENTOS = (10, 40, 200)
+#: Cada busca é repetida com várias sementes. Sem isso, "o TPE ganhou" é uma
+#: afirmação sobre uma execução, não sobre o método — foi o erro das medições
+#: anteriores, agravado pelo LSC não-determinístico (corrigido em 24/09).
+SEMENTES = (11, 29, 42)
 FRACAO = 0.10
 CENAS = tuple(a for a in sys.argv[1:] if not a.startswith("-")) or ("IP",)
 EIXOS = ("learning rate", "dropout", "weight decay", "batch", "PCA")
 
 
-def rodar(cena: str, orcamento: int, estrategia: str) -> pd.DataFrame:
-    """Uma busca completa; devolve a tabela com TODOS os trials."""
+def rodar(cena: str, orcamento: int, estrategia: str, semente: int) -> pd.DataFrame:
+    """Uma busca completa; devolve a tabela com TODOS os trials.
+
+    A semente governa a busca *e* o treino: é uma réplica completa do experimento,
+    não só um reembaralhamento dos pesos iniciais.
+    """
     base = EC(dataset=cena, model_type="cnn1d", two_input=True, segmenter="seeds",
               fusion="scalar", train_fraction=FRACAO,
-              epochs=orcamento, patience=10, early_stopping_target=0.95, seed=42)
+              epochs=orcamento, patience=10, early_stopping_target=0.95, seed=semente)
     tabela, _ = ns["automated_hpo"](
         base, trials_per_cnn=TRIALS, search_epochs=orcamento, backend="thread",
         strategy=estrategia, population=6, retain="winner",
@@ -65,6 +73,7 @@ def rodar(cena: str, orcamento: int, estrategia: str) -> pd.DataFrame:
     tabela = tabela.drop(columns=["resultado", "config"], errors="ignore")
     tabela["cena"] = cena
     tabela["orçamento"] = orcamento
+    tabela["semente"] = semente
     return tabela
 
 
@@ -74,7 +83,7 @@ def main() -> None:
           f"orçamentos: {ORCAMENTOS} | {int(FRACAO*100)}% de treino", flush=True)
 
     destino = caminho_resultado("08_trials.csv")
-    feitos, chaves = carregar_feito(destino, ("cena", "orçamento", "estratégia"))
+    feitos, chaves = carregar_feito(destino, ("cena", "orçamento", "estratégia", "semente"))
     if chaves:
         print(f"retomando: {len(chaves)} buscas já feitas", flush=True)
     todos = list(feitos)
@@ -83,20 +92,22 @@ def main() -> None:
         for orcamento in ORCAMENTOS:
             print(f"\n--- {cena} · teto de {orcamento} épocas ---", flush=True)
             for estrategia in ns["HPO_STRATEGIES"]:
-                if (cena, orcamento, estrategia) in chaves:
-                    print(f"  {estrategia:<8} (já medido)", flush=True)
-                    continue
-                inicio = time.perf_counter()
-                tabela = rodar(cena, orcamento, estrategia)
-                melhor = tabela.loc[tabela["val_accuracy (objetivo)"].idxmax()]
-                print(f"  {estrategia:<8} val={melhor['val_accuracy (objetivo)']:.4f} "
-                      f"(trial {int(melhor['trial']):>2})  OA_teste={melhor['OA teste (relato)']:.4f}  "
-                      f"seg={melhor['segmentador']:<10} "
-                      f"épocas_médias={tabela['épocas executadas'].mean():5.1f}  "
-                      f"{time.perf_counter()-inicio:5.1f}s", flush=True)
-                todos.extend(tabela.to_dict(orient="records"))
-                salvar(todos, destino)
-                gc.collect()
+                for semente in SEMENTES:
+                    if (cena, orcamento, estrategia, semente) in chaves:
+                        print(f"  {estrategia:<8} s={semente:<4} (já medido)", flush=True)
+                        continue
+                    inicio = time.perf_counter()
+                    tabela = rodar(cena, orcamento, estrategia, semente)
+                    melhor = tabela.loc[tabela["val_accuracy (objetivo)"].idxmax()]
+                    print(f"  {estrategia:<8} s={semente:<4} "
+                          f"val={melhor['val_accuracy (objetivo)']:.4f} "
+                          f"(trial {int(melhor['trial']):>2})  "
+                          f"OA_teste={melhor['OA teste (relato)']:.4f}  "
+                          f"seg={melhor['segmentador']:<10} "
+                          f"{time.perf_counter()-inicio:5.1f}s", flush=True)
+                    todos.extend(tabela.to_dict(orient="records"))
+                    salvar(todos, destino)
+                    gc.collect()
 
     quadro = pd.DataFrame(todos)
 
@@ -107,11 +118,22 @@ def main() -> None:
                                values="melhor até agora")
         print(f"\n{cena}:"); print(pivo.round(4).to_string(), flush=True)
 
-    print(f"\n{'='*92}\nDISPERSÃO ENTRE ESTRATÉGIAS, POR ORÇAMENTO\n{'='*92}", flush=True)
-    melhor_por = (quadro.groupby(["cena", "orçamento", "estratégia"])["val_accuracy (objetivo)"]
-                  .max().unstack())
-    melhor_por["dispersão (pp)"] = (melhor_por.max(axis=1) - melhor_por.min(axis=1)) * 100
-    print(melhor_por.round(4).to_string(), flush=True)
+    print(f"\n{'='*92}\nESTRATÉGIAS: MÉDIA ± DESVIO ENTRE SEMENTES\n{'='*92}", flush=True)
+    por_busca = (quadro.groupby(["cena", "orçamento", "estratégia", "semente"])
+                 ["val_accuracy (objetivo)"].max().reset_index())
+    resumo = por_busca.groupby(["cena", "orçamento", "estratégia"])["val_accuracy (objetivo)"]
+    tabela_resumo = resumo.agg(["mean", "std", "min", "max"]).round(4)
+    print(tabela_resumo.to_string(), flush=True)
+    print("\nA diferença entre estratégias só é afirmável se exceder o desvio entre sementes.")
+    for (cena, orcamento), grupo in por_busca.groupby(["cena", "orçamento"]):
+        medias = grupo.groupby("estratégia")["val_accuracy (objetivo)"].mean()
+        desvios = grupo.groupby("estratégia")["val_accuracy (objetivo)"].std()
+        amplitude = (medias.max() - medias.min()) * 100
+        desvio_tipico = desvios.mean() * 100
+        veredito = "AFIRMÁVEL" if amplitude > 2 * desvio_tipico else "dentro do ruído"
+        print(f"  {cena} · {orcamento:>3} épocas: amplitude {amplitude:5.2f} pp | "
+              f"desvio típico {desvio_tipico:5.2f} pp → {veredito} "
+              f"(melhor: {medias.idxmax()})")
 
     print(f"\n{'='*92}\nPESO DE CADA EIXO — validação média por valor\n{'='*92}", flush=True)
     for cena in CENAS:
