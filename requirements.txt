@@ -1,0 +1,33 @@
+# Versões com que o notebook foi validado — as mesmas de EXPECTED_VERSIONS
+# (seção 1 do HSI_MLOps.ipynb), conferidas por check_versions() na seção 2.
+# Python 3.12.13.
+#
+# Ambiente com uv:
+#     uv venv --python 3.12
+#     uv pip install -r requirements.txt
+#
+# O torch abaixo é o build de CPU/CUDA padrão do PyPI. Para GPU recente
+# (Blackwell/sm_120 exige CUDA 12.8+), instale o wheel correspondente:
+#     uv pip install torch==2.13.0 --index-url https://download.pytorch.org/whl/cu130
+# check_versions() avisa se o build instalado não cobre a capability da sua GPU.
+
+numpy==2.5.1
+scipy==1.18.0
+scikit-learn==1.9.0
+pandas==3.0.5
+matplotlib==3.11.1
+seaborn==0.13.2
+
+# ximgproc (SEEDS, SLIC, LSC) só existe no pacote contrib; o Watershed usa o
+# OpenCV base. O pacote opencv-python comum quebra a seção 3.2.
+opencv-contrib-python-headless==5.0.0.93
+
+torch==2.13.0
+
+# Hipertunador bayesiano (TPE) da seção 5.4. O algoritmo genético é implementado
+# no próprio notebook e não precisa de dependência.
+optuna==4.9.0
+
+# Execução do notebook.
+ipykernel==7.3.0
+ipython==9.16.0
