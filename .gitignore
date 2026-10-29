@@ -34,3 +34,18 @@ script/Data.tlpdb.lua
 # local
 *.vimrc
 output/*
+*.bbl
+*.blg
+
+# Datasets (~67 MB) — obtidos com scripts/download_data.py
+data/
+
+# Saídas de execução: curvas, checkpoints, notebooks executados
+outputs/
+
+# Ambiente
+.venv/
+__pycache__/
+*.egg-info/
+*.py[cod]
+.ipynb_checkpoints/

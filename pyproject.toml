@@ -1,0 +1,20 @@
+[project]
+name = "hsi"
+version = "0.1.0"
+description = "Classificação hiperespectral com CNN 1D — TCC, otimização do trabalho de Souza (2023)"
+requires-python = ">=3.12"
+# As versões exatas ficam no requirements.txt; aqui só o que o pacote importa.
+dependencies = [
+    "numpy", "scipy", "scikit-learn", "pandas", "matplotlib", "seaborn",
+    "opencv-contrib-python-headless", "torch", "optuna", "ipython",
+]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["hsi*"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["hsi"]

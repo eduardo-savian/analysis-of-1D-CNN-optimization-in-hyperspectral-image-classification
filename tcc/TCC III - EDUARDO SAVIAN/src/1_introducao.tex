@@ -1,0 +1,44 @@
+\chapter{Introdução}
+\label{cap:intro}
+
+As Imagens Hiperespectrais (HSIs) constituem uma tecnologia de sensoriamento remoto que captura informações em centenas de bandas espectrais estreitas e contíguas, permitindo a identificação precisa de materiais e compostos presentes em uma cena \cite{Li2019DeepLF, Ahmad_2025}. A classificação de HSIs provenientes do sensoriamento remoto da Terra apresenta desafios relacionados à alta dimensionalidade dos dados, à redundância espectral entre bandas adjacentes e à complexidade envolvida na extração de informações a partir de suas características espectrais \cite{Qian2020, Lurs12162659}. Nesse contexto, arquiteturas leves como CNNs que utilizam poucas dimensões emergem como alternativas para cenários com restrições computacionais, oferecendo um equilíbrio entre capacidade de processamento e demanda por recursos \cite{Viel10064297, DeeplearningLC}.
+
+Trabalhos recentes demonstram que a incorporação de fusão de dados espaciais e espectrais resulta em ganhos significativos de desempenho na classificação de HSIs \cite{IMANI202059, Souza2023}. Entretanto, a arquitetura proposta por \citeonline{Souza2023} apresenta limitações que comprometem sua eficiência. O processamento sequencial constitui um gargalo, uma vez que as etapas de segmentação e classificação são executadas de forma serial mesmo quando poderiam ser paralelizadas. O desempenho final da arquitetura é sensível à configuração manual dos hiperparâmetros tanto do modelo de classificação quanto do algoritmo de segmentação, o que dificulta a reprodutibilidade e a aplicação em diferentes conjuntos de dados. Adicionalmente, o algoritmo de segmentação empregado pode apresentar limitações de desempenho que impactam a qualidade da classificação final.
+
+O processamento paralelo representa uma estratégia consolidada para acelerar aplicações de aprendizado profundo \cite{Aach2025, Nandan10910577}. Arquiteturas de GPUs modernas, baseadas na plataforma CUDA (Compute Unified Device Architecture) da NVIDIA, disponibilizam milhares de núcleos de processamento paralelo (CUDA cores) que podem executar simultaneamente operações independentes \cite{CUDA_Programming}. No contexto de CNNs, as operações de convolução apresentam independência de dados intrínseca: cada elemento do mapa de características de saída pode ser calculado de forma independente dos demais elementos da mesma camada, sem dependência de dados entre eles \cite{Jorda_cuDNN}. Esta propriedade fundamental viabiliza a paralelização massiva em GPUs.
+
+Portanto, o desafio reside em sistematizar e otimizar a arquitetura de classificação espacial-espectral para aumentar a eficiência em tempo, acurácia e consumo de recursos. A proposta busca transformar os gargalos identificados em um fluxo otimizado, acelerado e automaticamente ajustável, viabilizando a aplicação da metodologia em diferentes cenários de sensoriamento remoto.
+
+\section{Objetivos}
+
+Esta seção formaliza os objetivos do trabalho, conforme descrito a seguir.
+
+\bigskip
+\subsection{Objetivo Geral}
+
+Analisar o impacto de técnicas de segmentação, parametrização automática e processamento paralelo na classificação de imagens hiperespectrais utilizando redes neurais convolucionais unidimensionais.
+
+\bigskip
+\subsection{Objetivos Específicos}
+
+\begin{enumerate}
+    \item Explorar algoritmos de segmentação espacial (SEEDS, LSC, Watershed) para o processamento de HSIs e avaliar seu impacto na classificação;
+    
+    \item Implementar metodologias de ajuste automático de hiperparâmetros (Grid Search e Otimização Bayesiana) para a arquitetura de classificação;
+    
+    \item Disponibilizar uma análise comparativa do fluxo de classificação de HSIs baseando-se em métricas de acurácia (OA, AA, Kappa) e custo computacional;
+    
+    \item Implementar estratégias de processamento paralelo para acelerar as etapas de segmentação e classificação espectral, explorando a independência de dados nas operações de convolução e a execução concorrente via threads.
+\end{enumerate}
+
+\section{Metodologia}
+
+O objetivo do trabalho é descritivo e exploratório, as métricas coletadas são de caráter quantitativo e conclusões e observações derivadas do trabalho serão realizadas de maneira indutiva baseadas nas métricas de performance coletadas e comparadas.
+
+Foi realizada uma pesquisa bibliográfica para a fundamentação e escolha das técnicas e dos materiais do trabalho, sendo esta primariamente focada em autores com obras associadas aos temas de aprendizado profundo \cite{DeeplearningLC, DeepLearningIG}, processamento de imagens hiperespectrais \cite{Li2019DeepLF, Ahmad_2025, Qian2020}, redes neurais convolucionais \cite{Gradient-basedlearningappliedtodocumentrecognition, NIPS2012_c399862d} e técnicas de otimização de hiperparâmetros \cite{WU201926, liashchynskyi2019gridsearchrandomsearch}, assim como temas adjacentes relevantes de segmentação de imagens \cite{bergh2013seedssuperpixelsextractedenergydriven, Zhengqin7298741, Najman546254} e estratégias de paralelização computacional \cite{Aach2025, Nandan10910577, CUDA_Programming}.
+
+Após isso será realizada uma implementação e testes das técnicas escolhidas para validação, incluindo diferentes algoritmos de segmentação espacial e abordagens de fusão de características, e uma campanha experimental sistemática será conduzida com múltiplos datasets de referência para a coleta final das métricas apresentadas no \autoref{cap:proj}.
+
+\section{Estrutura do Trabalho}
+
+No \autoref{cap:fund} serão explorados os tópicos centrais que constituem a premissa do trabalho, primariamente conceitos de Imagens Hiperespectrais, Processamento Digital de Imagens, Aprendizado de Máquina, Aprendizado Profundo e Processamento Paralelo em GPUs. No \autoref{cap:proj} é definido o projeto e o plano de verificação para a implementação e análise das técnicas descritas. No \autoref{cap:consid} é realizado uma recapitulação do que foi abordado no trabalho e o que se espera ao final de sua conclusão.
