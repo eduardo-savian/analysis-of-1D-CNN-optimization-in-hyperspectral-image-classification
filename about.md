@@ -230,6 +230,21 @@ Detalhes que importam:
   Δ mínimo 0,001, restaurando a melhor época (política do `Context.md` §2.2). O
   original usava `val_loss` com patience 5.
 - `test_ratio=0.15` e `valid_ratio=0.5` → **85% treino, 7,5% validação, 7,5% teste**.
+  Essa é a divisão de **todos** os pixels rotulados, e acontece sempre.
+- `train_fraction` vem **depois** e encolhe **só o treino**: com `0.10`, o modelo
+  treina com 10% daqueles 85% (871 pixels em IP, ~8,5% dos rotulados), amostrados de
+  forma estratificada por classe. Validação e teste não mudam — a régua é a mesma.
+  O padrão é `1.0`. Quem usa 10% são os experimentos de segmentadores e HPO:
+
+  | Experimentos | Treino | Parada |
+  |---|---|---|
+  | **05, 06, 08, 10** (segmentadores e HPO) | **10%** | meta `val_accuracy` 0,95, patience 10, teto 200 épocas (08 também 10 e 40) |
+  | **09, 11, 12, 13** (vazamento e partição) | 100% | patience 10 |
+  | `ExperimentConfig()` e célula 5 do notebook | 100% | patience 10 |
+
+  Portanto os números de HPO (+8,40 pp), da comparação de segmentadores e o 0,8174 do
+  SEEDS otimizado são **com 10% de treino**; a queda 0,8996 → 0,5897 sem vazamento é
+  com 100%. Nenhum deles usa a parada do original (`val_loss`, patience 5).
 
 ### 4.2 `hsi/ambiente.py`
 
@@ -356,7 +371,11 @@ rotuladas, maior id 78). É o tamanho da tabela de embeddings.
 
 **`subsample_train(splits, labels, fraction)`** — reduz só o treino (ex.: 10%),
 **estratificado por classe**, garantindo ≥ 1 amostra por classe. Validação e
-teste ficam intactos: comparar frações só faz sentido com a mesma régua.
+teste ficam intactos: comparar frações só faz sentido com a mesma régua. Roda
+**depois** do split, sobre os 85% de treino (ver a tabela da seção 4.1 sobre quais
+experimentos usam 10%). O custo medido de treinar com 10% em IP: −14,3 pp de OA e
+−23,0 de AA (`FRACAO_TREINO`); a recomendação é buscar com 10% e retreinar o vencedor
+com 100%.
 
 **`segment_leakage(data)`** — mede o vazamento: que fração das amostras de teste
 está numa região que também aparece no treino. ~1,0 no split por pixel; 0 no split
