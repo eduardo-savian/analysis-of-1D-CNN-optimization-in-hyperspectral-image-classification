@@ -1,12 +1,12 @@
 # About — o código do TCC, peça por peça
 
-Este documento explica **todo** o código do pacote `hsi/`: o que cada termo
+Este documento explica **todo** o código do pacote `src/hsi/`: o que cada termo
 significa, o que cada função faz, por que ela existe e como as peças se encaixam.
 Ele é organizado em camadas — do problema para o código, do código para os
 pilares, dos pilares para os resultados. Leia na ordem na primeira vez; depois use
 como referência.
 
-Os números citados vêm de `Context.md` e de `hsi/experimentos/medicoes.py`, onde
+Os números citados vêm de `Context.md` e de `src/hsi/experimentos/medicoes.py`, onde
 cada um tem data e procedência. Quando o código e este texto discordarem, vale o
 código — e este texto precisa ser corrigido.
 
@@ -140,7 +140,7 @@ uma.
 ## 3. Mapa do pacote
 
 ```
-hsi/
+src/hsi/
 ├── __init__.py            mapa do pacote (comece por aqui)
 ├── config.py              caminhos, ExperimentConfig, tabelas por cena
 ├── ambiente.py            versões, GPU, determinismo, sementes
@@ -179,7 +179,7 @@ cima (`pipeline`, `hpo`). Por isso as listas `MODEL_TYPES` e `SEGMENTERS` moram 
 
 ## 4. Configuração e ambiente
 
-### 4.1 `hsi/config.py`
+### 4.1 `src/hsi/config.py`
 
 **Caminhos.**
 
@@ -246,7 +246,7 @@ Detalhes que importam:
   SEEDS otimizado são **com 10% de treino**; a queda 0,8996 → 0,5897 sem vazamento é
   com 100%. Nenhum deles usa a parada do original (`val_loss`, patience 5).
 
-### 4.2 `hsi/ambiente.py`
+### 4.2 `src/hsi/ambiente.py`
 
 - `check_versions()` — compara o ambiente com `EXPECTED_VERSIONS` (as versões
   validadas) e avisa sobre divergências. Confere duas armadilhas: o build CUDA do
@@ -272,7 +272,7 @@ Detalhes que importam:
 
 ## 5. Dados: da cena aos tensores
 
-### 5.1 `hsi/dados/cenas.py`
+### 5.1 `src/hsi/dados/cenas.py`
 
 - `SCENE_FILES` — nome do arquivo `.mat` e a chave do dicionário de cada cena.
 - `Scene` — dataclass com `code`, `image` (cubo `H×W×B`) e `labels` (GT `H×W`).
@@ -288,7 +288,7 @@ Como a ordem é row-major, a posição de cada amostra se recupera do índice
 achatado: `linha, coluna = divmod(índice, W)`. É assim que `prepare_data_parallel`
 monta `coords`.
 
-### 5.2 `hsi/dados/preprocessamento.py`
+### 5.2 `src/hsi/dados/preprocessamento.py`
 
 **PCA (Análise de Componentes Principais).** Encontra novas direções ("componentes")
 que são combinações lineares das bandas, ordenadas pela variância que explicam. As
@@ -306,7 +306,7 @@ são altamente correlacionadas — e ruído.
   **É essa imagem — não o cubo — que os segmentadores recebem.** Os algoritmos de
   superpixel são feitos para imagens de 3 canais.
 
-### 5.3 `hsi/dados/segmentacao.py`
+### 5.3 `src/hsi/dados/segmentacao.py`
 
 **Superpixel.** Agrupamento de pixels vizinhos e parecidos numa região contígua.
 Em vez de 21.025 pixels (IP), a imagem vira ~80 a ~320 regiões homogêneas. O
@@ -336,7 +336,7 @@ usa regiões menores que PU/SA porque tem 145×145 e classes em faixas estreitas
 
 Como cada algoritmo funciona está na seção 14 (Pilar 4).
 
-### 5.4 `hsi/dados/particoes.py`
+### 5.4 `src/hsi/dados/particoes.py`
 
 **`Splits`** — três vetores de índices: `train`, `val`, `test`. Índices referentes
 às linhas de `PreparedData`.
@@ -404,7 +404,7 @@ com `train_fraction < 1` sobram pixels fora de propósito.
 
 ## 6. O modelo: a CNN1D
 
-Arquivo: `hsi/modelo.py`.
+Arquivo: `src/hsi/modelo.py`.
 
 ### 6.1 A ideia
 
@@ -578,7 +578,7 @@ interpretar os pilares 3 e 4 e o vazamento — não para propor tirá-la.
 
 ## 8. Treino e parada antecipada
 
-Arquivo: `hsi/treino.py`.
+Arquivo: `src/hsi/treino.py`.
 
 ### 8.1 Conceitos
 
@@ -632,7 +632,7 @@ modelo fica com os pesos da **última** época, mesmo com `restore_best_weights=
 
 ## 9. Avaliação: OA, AA e Kappa
 
-Arquivo: `hsi/avaliacao.py`.
+Arquivo: `src/hsi/avaliacao.py`.
 
 **Matriz de confusão** `M` (C × C): `M[i, j]` = quantas amostras da classe real `i`
 foram previstas como `j`. A diagonal são os acertos.
@@ -664,7 +664,7 @@ Funções:
 
 ## 10. O pipeline que amarra tudo
 
-Arquivo: `hsi/pipeline.py`. É **a única peça que conhece a ordem das etapas**.
+Arquivo: `src/hsi/pipeline.py`. É **a única peça que conhece a ordem das etapas**.
 Notebook, HPO e experimentos chamam estas funções, não cópias delas.
 
 - `prepare_data(config, backend)` — atalho para `prepare_data_parallel` sem os
@@ -707,13 +707,16 @@ Notebook, HPO e experimentos chamam estas funções, não cópias delas.
 
 **O que foi feito:**
 
-1. **Reimplementação em PyTorch** do notebook Keras original, reproduzindo-o **bit a
-   bit**: mesmo histórico de perda por época, mesmos pesos finais, mesmas métricas
-   (OA 0,976309 / AA 0,957918 / Kappa 0,968545 em PaviaU). Isso é **pré-requisito**:
-   sem equivalência demonstrada, nenhuma comparação posterior significa nada.
+1. **Reimplementação em PyTorch** do notebook Keras original, preservando a
+   arquitetura (37.577 parâmetros em PaviaU, como o Keras), o PCA, a divisão
+   (`random_state=42`) e a receita. **Não é bit a bit contra o Keras**: o notebook não
+   fixa a semente do TensorFlow e registrou OA 0,9819 / AA 0,9735 / Kappa 0,9760 em
+   PaviaU. O que se repete bit a bit é a reimplementação entre execuções (OA 0,976309 /
+   AA 0,957918 / Kappa 0,968545 com a configuração do notebook) — é isso que torna as
+   comparações seguintes atribuíveis.
 2. **Configuração explícita** (`ExperimentConfig`) no lugar de globais soltas, e
    funções que recebem o que usam (nada de ler variável global escondida).
-3. **Um módulo por responsabilidade** no pacote `hsi/`, cada nome definido uma vez
+3. **Um módulo por responsabilidade** no pacote `src/hsi/`, cada nome definido uma vez
    só. O notebook importa daqui; a extração foi conferida bit a bit (mesmo treino
    pelo notebook antigo e pelo pacote → mesmas previsões e métricas).
 4. **Determinismo** (seção 4.2) e **contrato de dados** (seção 5.4).
@@ -780,7 +783,7 @@ pickle a envia **pelo nome** (`módulo.função`). Por isso as funções paralel
 coordenar (criar pool, serializar, sincronizar). **Contenção** = tarefas paralelas
 disputando o mesmo recurso (banda de memória, cache, GIL).
 
-### 12.2 Paralelismo entre ramos — `hsi/paralelo/ramos.py`
+### 12.2 Paralelismo entre ramos — `src/hsi/paralelo/ramos.py`
 
 Depois de carregar a cena, os ramos são independentes até a fusão:
 
@@ -821,7 +824,7 @@ implementação entrega 1,22× contra teto de 1,21× — **no limite do desenho*
 pré-processamento é **0,9% do tempo total** (0,193 s contra 20,13 s de treino).
 Por isso o esforço migrou para a partição da cena.
 
-### 12.3 Paralelismo por partição da cena — `hsi/paralelo/particao.py`
+### 12.3 Paralelismo por partição da cena — `src/hsi/paralelo/particao.py`
 
 A ideia: dividir a cena em **N partes de tamanho parecido** e processá-las ao mesmo
 tempo. Partes equilibradas → teto ≈ N (em vez de 1,2×), e o que fica paralelo é o
@@ -936,7 +939,7 @@ patience encolhida para `max(2, epochs // 3)`), e o vencedor é retreinado com o
 orçamento completo. O risco é o *low-fidelity bias*: o ranking com 10 épocas pode não
 ser o ranking com 60.
 
-### 13.2 O espaço — `hsi/hpo/espaco.py`
+### 13.2 O espaço — `src/hsi/hpo/espaco.py`
 
 ```python
 HPO_SPACE = {
@@ -967,7 +970,7 @@ Treinar todas é inviável; a busca é **amostrada**.
 `hpo_decode` traduz a tupla em campos da `ExperimentConfig`. O receituário herdado
 é um dos pontos do espaço.
 
-### 13.3 As três estratégias — `hsi/hpo/estrategias.py`
+### 13.3 As três estratégias — `src/hsi/hpo/estrategias.py`
 
 Todas têm a interface **`ask()`** (próximo candidato) e **`tell(candidato, score)`**
 (resultado). E todas começam com a mesma **cobertura**: os primeiros 4 trials são
@@ -993,7 +996,7 @@ forçados a segmentadores distintos, para nenhum ficar de fora por azar.
 
 `make_hpo_searcher(strategy, ...)` é o único ponto de escolha.
 
-### 13.4 A busca — `hsi/hpo/busca.py`
+### 13.4 A busca — `src/hsi/hpo/busca.py`
 
 - `automated_hpo(base_config, trials_per_cnn, search_epochs, strategy, retain)` —
   para cada trial: `ask` → `hpo_decode` → `replace` na config → encolhe épocas e
@@ -1224,7 +1227,7 @@ Consequências:
 saber exatamente qual configuração, com quais dados e qual código, produziu qual
 modelo e qual resultado.
 
-### 16.1 Rastreio — `hsi/mlops/rastreio.py`
+### 16.1 Rastreio — `src/hsi/mlops/rastreio.py`
 
 Cada execução auditada vira um diretório imutável `outputs/runs/<run_id>/`:
 
@@ -1245,7 +1248,7 @@ Funções: `create_run` (abre antes de criar dados), `record_run` (fecha com suc
 Quem abre runs são as **campanhas** (`run_audited_experiment`). Os trials do HPO e a
 execução avulsa da seção 8 do notebook **não** viram runs.
 
-### 16.2 Campanhas — `hsi/mlops/campanha.py`
+### 16.2 Campanhas — `src/hsi/mlops/campanha.py`
 
 Uma campanha agrega runs por uma receita explícita, grava o plano **antes** de
 treinar (com hash), atualiza resultados parciais após cada tentativa e calcula
@@ -1277,7 +1280,7 @@ estatísticas só a partir dos artefatos.
 
 ## 17. Visualização e explicabilidade
 
-### 17.1 Diagnósticos — `hsi/visualizacao/diagnosticos.py`
+### 17.1 Diagnósticos — `src/hsi/visualizacao/diagnosticos.py`
 
 Figuras que **verificam** algo, não só ilustram: visão da cena e desbalanceamento
 (`plot_scene_overview`), PCA (`plot_pca_diagnostics` — calcula sem *whiten* para
@@ -1288,7 +1291,7 @@ interpretar a variância), comparação dos segmentadores (`plot_segmentation_co
 custo de inferência (`profile_inference`) e perfil dos ramos paralelos
 (`plot_parallel_profile`).
 
-### 17.2 Explicabilidade — `hsi/visualizacao/explicabilidade.py`
+### 17.2 Explicabilidade — `src/hsi/visualizacao/explicabilidade.py`
 
 **Hook** — função que o PyTorch chama durante o forward (ou backward) de uma camada,
 para observar a saída sem alterar nada. É removida no fim.
@@ -1328,7 +1331,7 @@ Nenhuma dessas é prova de causalidade: indicam influência local.
 
 ## 18. Os experimentos 05 a 13
 
-Um módulo por experimento em `hsi/experimentos/`; o índice `EXPERIMENTOS` em
+Um módulo por experimento em `src/hsi/experimentos/`; o índice `EXPERIMENTOS` em
 `__init__.py`. Resultados em `experimentos/resultados/`.
 
 | Exp. | Arquivo | Pergunta | Resposta curta |
@@ -1359,7 +1362,7 @@ Infraestrutura:
 
 **`HSI_MLOps.ipynb`** guarda a narrativa e as células de execução; o código está no
 pacote. Cada célula de definição diz em que arquivo está o código da sua seção. A
-primeira célula liga `%autoreload 2`: editar um arquivo de `hsi/` vale sem reiniciar
+primeira célula liga `%autoreload 2`: editar um arquivo de `src/hsi/` vale sem reiniciar
 o kernel.
 
 | Seção do notebook | O que faz | Onde está o código |
@@ -1374,11 +1377,11 @@ o kernel.
 | 9 | todos os runs | `mlops/observabilidade.py`, `mlops/paineis.py` |
 | 10 | experimentos do TCC | `experimentos/` |
 
-**Lançador** (`experimentos/executar.py`) — roda um experimento sem kernel aberto:
+**Lançador** (`src/executar.py`) — roda um experimento sem kernel aberto:
 
 ```bash
-.venv/bin/python experimentos/executar.py --lista   # lista os experimentos
-.venv/bin/python experimentos/executar.py 13 IP     # roda o 13 em Indian Pines
+.venv/bin/python src/executar.py --lista   # lista os experimentos
+.venv/bin/python src/executar.py 13 IP     # roda o 13 em Indian Pines
 ```
 
 Fixa `torch.set_num_threads(1)` no nível do módulo, porque o filho do `spawn`
@@ -1542,13 +1545,13 @@ defesa:
 
 **Ordem de leitura do código** (cada passo apoia o seguinte):
 
-1. `hsi/__init__.py` e `hsi/config.py` — o vocabulário.
-2. `hsi/dados/cenas.py` → `preprocessamento.py` → `segmentacao.py` → `particoes.py`.
-3. `hsi/modelo.py` — releia `_FusionClassifier` com a seção 7 ao lado.
-4. `hsi/treino.py` → `hsi/avaliacao.py` → `hsi/pipeline.py`.
-5. `hsi/paralelo/ramos.py` → `hsi/paralelo/particao.py`.
-6. `hsi/hpo/espaco.py` → `estrategias.py` → `busca.py` → `selecao.py`.
-7. `hsi/experimentos/e09_validacao_regiao.py` e `e13_pool_quente.py` — os dois
+1. `src/hsi/__init__.py` e `src/hsi/config.py` — o vocabulário.
+2. `src/hsi/dados/cenas.py` → `preprocessamento.py` → `segmentacao.py` → `particoes.py`.
+3. `src/hsi/modelo.py` — releia `_FusionClassifier` com a seção 7 ao lado.
+4. `src/hsi/treino.py` → `src/hsi/avaliacao.py` → `src/hsi/pipeline.py`.
+5. `src/hsi/paralelo/ramos.py` → `src/hsi/paralelo/particao.py`.
+6. `src/hsi/hpo/espaco.py` → `estrategias.py` → `busca.py` → `selecao.py`.
+7. `src/hsi/experimentos/e09_validacao_regiao.py` e `e13_pool_quente.py` — os dois
    experimentos que mais mudaram as conclusões.
 8. `mlops/` e `visualizacao/` por último: são apoio, não o núcleo.
 

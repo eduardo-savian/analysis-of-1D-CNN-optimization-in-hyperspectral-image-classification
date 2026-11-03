@@ -17,7 +17,7 @@ segmentadores — além da rastreabilidade das execuções.
 O ponto de partida é a implementação de **Sydney Matheus de Souza (2023)**: uma CNN
 1D que classifica pixels hiperespectrais usando, além do espectro, o **id do
 superpixel** a que o pixel pertence (segmentação SEEDS). O notebook original está
-preservado no histórico do git, sem alterações, no commit `3ee559e`.
+preservado no histórico do git, sem alterações, no commit `3ee559e`, e na raiz do repositório como `Sydney_Souza_2023_CNN1D_SEEDS.ipynb` (o mesmo código, célula a célula; mudam só as saídas gravadas da execução).
 
 **A contribuição deste trabalho não é um método novo.** É a otimização e a avaliação
 crítica de um trabalho existente. Todo resultado aqui só faz sentido contra aquilo
@@ -85,13 +85,13 @@ acurácia média por classe pune quem acerta só as classes grandes.
 
 ### 2.1 Implementação
 
-- **O código vive no pacote `hsi/`**, um módulo por responsabilidade (mapa na seção
+- **O código vive no pacote `src/hsi/`**, um módulo por responsabilidade (mapa na seção
   11), com cada nome definido uma vez só. O notebook `HSI_MLOps.ipynb` importa dali e
   guarda a narrativa, os diagnósticos e as células de execução.
-- **Os experimentos moram no mesmo pacote**, em `hsi/experimentos/`, um módulo por
-  experimento (`experimento_05` … `experimento_13`). Assim não existem duas
+- **Os experimentos moram no mesmo pacote**, em `src/hsi/experimentos/`, um módulo por
+  experimento (`experimento_05` … `experimento_14`). Assim não existem duas
   verdades: quem implementa e quem mede usam as mesmas funções. O notebook roda um
-  deles pela seção 10; fora do Jupyter, o lançador `experimentos/executar.py`
+  deles pela seção 10; fora do Jupyter, o lançador `src/executar.py`
   — ver seção 3.
 - Escopo restrito à **CNN 1D**, como no título: saiu do notebook o que não é objeto
   do trabalho. O código anterior está no commit `c4665d5`.
@@ -174,20 +174,20 @@ por `check_versions()` na seção 2 do notebook.
 4. Na seção 8, habilite apenas a execução que deseja fazer (`RUN_EXPERIMENT`,
    `RUN_HPO`, `RUN_AUDITED_CAMPAIGN` ou `RUN_BATCH_SWEEP`).
 
-As seções 1 a 7 só importam de `hsi/`; cada célula diz em que arquivo está o código
+As seções 1 a 7 só importam de `src/hsi/`; cada célula diz em que arquivo está o código
 da sua seção. O `%autoreload 2` da primeira célula faz uma edição nos arquivos valer
 sem reiniciar o kernel.
 
 ### 3.2 Rodar os experimentos
 
-Os experimentos do TCC estão em **`hsi/experimentos/`**, um módulo por experimento,
-como as funções `experimento_05` … `experimento_13`. Dentro do notebook, a seção 10
+Os experimentos do TCC estão em **`src/hsi/experimentos/`**, um módulo por experimento,
+como as funções `experimento_05` … `experimento_14`. Dentro do notebook, a seção 10
 escolhe um pelo número (`EXECUTAR`).
 
 Fora do kernel, o lançador headless faz o mesmo:
 
 ```bash
-.venv/bin/python experimentos/executar.py 13 IP
+.venv/bin/python src/executar.py 13 IP
 ```
 
 Ele importa `hsi.experimentos` e chama `experimento_13("IP")`, sem precisar de um
@@ -207,13 +207,13 @@ A receita padrão é explícita e auditável:
   validação.
 
 Os parâmetros `early_stopping_target`, `patience` e `early_stopping_min_delta` ficam
-juntos em `ExperimentConfig` (`hsi/config.py`) e devem ser ajustados como uma única
+juntos em `ExperimentConfig` (`src/hsi/config.py`) e devem ser ajustados como uma única
 política experimental.
 
 ### 3.4 Espaço de hiperparâmetros
 
 A busca é semeada e tem três estratégias (random, TPE e genético, em
-`hsi/hpo/estrategias.py`). `HPO_SPACE` (`hsi/hpo/espaco.py`) define os eixos — learning rate, dropout, weight decay, batch e componentes de PCA —
+`src/hsi/hpo/estrategias.py`). `HPO_SPACE` (`src/hsi/hpo/espaco.py`) define os eixos — learning rate, dropout, weight decay, batch e componentes de PCA —
 e cada trial ainda sorteia um segmentador e um conjunto dos seus parâmetros internos.
 Os primeiros trials cobrem obrigatoriamente os quatro segmentadores.
 
@@ -262,16 +262,23 @@ Grad-CAM, saliência, incerteza e a projeção inversa das decisões na cena.
 
 ## 4. Pilar 1 — Organização do código
 
-**O código está organizado no pacote `hsi/`** (28/10): 44 módulos em seis grupos —
+**O código está organizado no pacote `src/hsi/`** (28/10): 44 módulos em seis grupos —
 dados, paralelismo, modelo e treino, HPO, MLOps e visualização —, mais um módulo por
 experimento. A extração das células do notebook foi conferida bit a bit: o mesmo
 treino (IP, 3 épocas, semente 42) dá o mesmo histórico, as mesmas previsões e as
 mesmas OA/AA/Kappa pelo notebook antigo e pelo pacote. O mapa está na seção 11.
 
-**A reimplementação em PyTorch reproduz o original bit a bit**: mesmo histórico de
-perda por época, mesmos pesos finais e mesmas métricas — OA 0,976309 / AA 0,957918 /
-Kappa 0,968545 em PaviaU. Isso é pré-requisito, não resultado: sem equivalência
-demonstrada, nenhuma comparação posterior significa alguma coisa.
+**A reimplementação em PyTorch preserva o original, mas não o reproduz bit a bit**
+(corrigido em 02/11). Preserva a arquitetura (37.577 parâmetros em PaviaU, idênticos ao
+resumo do modelo Keras), o PCA e a divisão dos dados (`random_state=42`, as mesmas
+3.208 amostras de teste) e a receita; replica a inicialização Xavier com viés zero e o
+ε = 1e-7 do Adam. O que é bit a bit é a reimplementação consigo mesma: com a
+configuração do notebook, execuções repetidas (e as variantes sequencial e paralela)
+dão o mesmo histórico, os mesmos pesos e OA 0,976309 / AA 0,957918 / Kappa 0,968545 em
+PaviaU. O notebook original não fixa a semente do TensorFlow, e a execução gravada
+nele (commit `3ee559e`, célula 40) deu OA 0,9819 / AA 0,9735 / Kappa 0,9760 — os dois
+frameworks não partem dos mesmos pesos, então a igualdade numérica não é possível.
+A versão anterior deste parágrafo dizia "bit a bit" contra o original; estava errada.
 
 **Memória — a técnica do orientador.** Cada trial de HPO cria um `ExperimentResult`
 que carrega sua própria cópia dos dados preparados, e a campanha guardava todos numa
@@ -437,6 +444,44 @@ ganho de acurácia que ele aparentava ter não sobrevive (seção 8).
 
 ---
 
+### 5.6 Fusão concorrente — o desenho do orientador (02/11)
+
+O orientador desenhou o esquema que o capítulo 3 prometia: **T0** roda o ramo espacial
+(PCA(3) → RGB → SEEDS) e publica o mapa de segmentação; um pool **T1…TN** recebe
+posições do mapa, passa o espectro pelas convoluções, lê o id do segmento e concatena;
+mutex na segmentação e na concatenação. Implementado em
+`src/hsi/paralelo/fusao_concorrente.py`, medido no experimento 14 (inferência de todos os
+pixels rotulados, modelo da configuração herdada, 5 repetições, 723 execuções; ids e
+classes idênticos ao lote em todas).
+
+Decisões de implementação: a trava é a de uma `Condition` com a marca "publicado" (um
+mutex sozinho não garante que T0 escreva antes de alguém ler); duas extensões da seção
+crítica (`desenho`, como no papel, e `minima`, só a leitura) — indistinguíveis no
+tempo; uma variante `desacoplada` com todas as convoluções enfileiradas antes das
+fusões, porque no desenho literal a thread que termina a convolução fica parada
+esperando o mapa e segura a vaga no pool.
+
+Teto: parede ≥ tempo da segmentação, então speedup ≤ lote ÷ segmentação.
+
+| Cena | segmentação | lote (1 thread) | teto | desenho, bloco 1.024 | × lote 16 threads |
+|---|---|---|---|---|---|
+| IP | 0,111 s | 0,330 s | 2,98× | até 2,01× (N=8) | até 1,29× |
+| PU | 0,869 s | 1,050 s | 1,21× | até 1,21× (N=4) | até 1,04× |
+| SA | 0,670 s | 1,000 s | 1,49× | até 1,50× (N=8) | até 1,18× |
+
+- **Com bloco 1.024 o desenho atinge o teto** em PU e SA: a inferência inteira some
+  atrás do SEEDS.
+- **Com uma posição por tarefa (o literal) é 7 a 35× mais lento que o lote** em IP:
+  milhares de chamadas pequenas disputando o GIL; o próprio SEEDS em T0 fica 2–4× mais
+  lento.
+- **Bloco 64** já perde para o lote em PU e SA (669–846 tarefas).
+- Contra o lote com 16 threads internas do PyTorch, o ganho é pequeno, e a inferência é
+  uma fração pequena de uma execução — vale no cenário de classificar uma cena com um
+  modelo pronto, não no treino (onde não há o que sobrepor: a perda depende do id desde
+  o primeiro lote).
+
+---
+
 ## 6. Pilar 3 — Automação de hiperparâmetros
 
 ### 6.1 As estratégias
@@ -484,18 +529,22 @@ e o dropout 0,5 da receita herdada é justamente o valor pior.
 
 ### 6.3 Impacto contra a receita herdada
 
-É a comparação que o pilar existe para fazer. IP, 5 sementes, 10% de treino:
+É a comparação que o pilar existe para fazer. IP, 5 sementes, 10% de treino, receita
+herdada com **batch 32**, o do original (refeito em 02/11; a primeira medição usou 128
+e continua no CSV com o rótulo `padrão`):
 
 | Condição | receita herdada | otimizada | ganho | veredito |
 |---|---|---|---|---|
-| **seeds** | 0,7334 | **0,8174** | **+8,40 pp** | **afirmável** |
-| lsc | 0,6853 | 0,7566 | +7,13 pp | ruído (desvio 5,22) |
-| slic | 0,6003 | 0,6411 | +4,08 pp | ruído (desvio 25,54) |
-| watershed | 0,6583 | 0,5646 | −9,36 pp | ruído (desvio 22,70) |
+| **seeds** | 0,7441 ± 0,0169 | **0,8174 ± 0,0112** | **+7,33 pp** | **afirmável** (desvio 2,03) |
+| lsc | 0,6814 | 0,7566 | +7,52 pp | ruído (desvio 4,39) |
+| slic | 0,6060 | 0,6411 | +3,51 pp | ruído (desvio 24,53) |
+| watershed | 0,5847 | 0,5646 | −2,00 pp | ruído (desvio 27,57) |
 
-**Na configuração herdada (SEEDS), o HPO entrega +8,40 pp — o único ganho afirmável
-da tabela.** É o ganho efetivo do pilar sobre o trabalho de referência. Antes de citar
-o número no texto, refazer o braço herdado com batch 32 (seção 1.4).
+**Na configuração herdada (SEEDS), o HPO entrega +7,33 pp de OA (+10,82 de AA, +8,52
+de Kappa) — o único ganho afirmável da tabela.** É o ganho efetivo do pilar sobre o
+trabalho de referência. Com o batch 128 errado no braço herdado, o ganho parecia
++8,40 pp. Conferência independente: a receita herdada dá 0,7441 ± 0,0169, exatamente o
+SEEDS do experimento 05, que usa a mesma receita.
 
 ### 6.4 Quanto custa treinar com menos dados
 
@@ -875,6 +924,17 @@ de 3,51 pp do próprio não-determinismo. Não são afirmáveis a partir daquele
 O experimento 12 já os havia derrubado por outro motivo, e o número que vale vem do
 `process`, onde a OA se repete exatamente.
 
+**Threads de pool com 32 threads OpenMP cada (02/11).** O número de threads do
+OpenMP é estado de **cada thread**: `torch.set_num_threads(1)` na thread principal não
+chega às threads de um `ThreadPoolExecutor`, que sobem com o padrão (32 aqui). A
+convolução de um bloco de 64 pixels passava de 0,2 ms para ~100 ms — montar e
+sincronizar uma equipe de 32 threads por operação. Invalidou a primeira rodada do
+experimento 14 (log `14_IP_PU_SA_invalidado_omp.log`; as linhas concorrentes foram
+apagadas do CSV e remedidas). Corrigido com um `initializer` que repete nas threads do
+pool a contagem de quem as criou; o caminho "pool frio" de threads da partição
+(`run_experiment_particionado`) tinha o mesmo defeito e recebeu o mesmo `initializer`
+— o pool quente do experimento 13 já o tinha, então os números de threads dele valem.
+
 **DataLoader adiantando o gerador semeado.** Iterar o loader de treino para inspecionar
 um batch sorteava uma permutação e mudava silenciosamente o resultado. `fit()` repõe a
 semente antes da primeira época.
@@ -904,8 +964,8 @@ experimento. Usar `setsid` para lançar e padrões específicos para matar.
 
 ### 10.2 Pendências
 
-- Refazer o braço "receita herdada" do experimento 10 com batch 32, o do original
-  (seção 1.4); o experimento usou 128.
+- ~~Refazer o braço "receita herdada" do experimento 10 com batch 32~~ — feito em 02/11
+  (seção 6.3): +7,33 pp.
 - Refazer o LSC sob otimização conjunta, pós-correção, nas três cenas.
 - Comparar segmentadores sob split por região com **uma partição comum** a todos
   (ex.: as regiões do SEEDS, ou blocos grandes), para que só a fusão mude (seção 8.4).
@@ -926,11 +986,11 @@ experimento. Usar `setsid` para lançar e padrões específicos para matar.
 
 ### 11.1 Estrutura
 
-O código está no pacote `hsi/`; o notebook importa dele e guarda a narrativa e as
+O código está no pacote `src/hsi/`; o notebook importa dele e guarda a narrativa e as
 células de execução. Este `Context.md` é o registro escrito.
 
 ```
-hsi/
+src/hsi/
 ├── config.py              caminhos, ExperimentConfig, tabelas por cena
 ├── ambiente.py            versões, GPU, determinismo, sementes
 ├── dados/
@@ -955,9 +1015,9 @@ hsi/
 
 | O que | Onde |
 |---|---|
-| Código (implementação e experimentos) | `hsi/` |
+| Código (implementação e experimentos) | `src/hsi/` |
 | Narrativa, diagnósticos e execução interativa | `HSI_MLOps.ipynb` |
-| Lançador headless dos experimentos | `experimentos/executar.py` |
+| Lançador headless dos experimentos | `src/executar.py` |
 | Instalação do pacote | `pyproject.toml` (`uv pip install -e . --no-deps`) |
 | Logs e CSVs | `experimentos/resultados/` |
 | Medições invalidadas pelo LSC | `experimentos/resultados/invalidados_lsc/` |
@@ -978,6 +1038,7 @@ hsi/
 | `experimento_11` | partição da cena, escala e acurácia | 5.2 |
 | `experimento_12` | a partição sob split por região | 8.3 |
 | `experimento_13` | pool frio contra quente, até N=32 | 5.3, 5.4 |
+| `experimento_14` | fusão concorrente (desenho do orientador), três cenas | 5.6 |
 
 ### 11.3 Figuras
 
