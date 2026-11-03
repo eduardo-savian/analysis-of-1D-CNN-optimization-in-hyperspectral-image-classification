@@ -23,13 +23,16 @@
 ]{styles/abntex2cite}
 
 \usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc} % hifenização de palavras acentuadas, como no TCC do Marcos
 
 %\usepackage[dvipsnames]{xcolor}
 \usepackage[table,xcdraw,dvipsnames]{xcolor}
 %\usepackage{subfigure}   % Pacote para subfiguras
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{lastpage}
 \usepackage{times}
+\usepackage{microtype} % reduz linhas que transbordam da margem
 \usepackage{graphicx}
 \usepackage{caption}
 \usepackage{tocloft}
@@ -39,6 +42,7 @@
 \usepackage{dirtytalk}
 \usepackage{tikz}
 \usetikzlibrary{tikzmark}
+\usetikzlibrary{arrows.meta,positioning,fit} % diagrama da fusão concorrente
 %\usepackage{array} 
 \usepackage{multirow}
 \usepackage{threeparttable} % to use table notes
@@ -93,6 +97,15 @@
 
 \usepackage{styles/ttc_univali}
 
+% As figuras antigas usam o prefixo src/ (resolvido por ../ quando se compila dentro de
+% src/); as dos resultados, não (resolvidas por src/ quando se compila na raiz do TCC).
+\graphicspath{{./}{../}{src/}}
+
+% A Lista de Equações usava o número digitado à mão no segundo argumento, que saía da
+% ordem sempre que uma equação era inserida antes. Agora usa o número impresso.
+\renewcommand{\addEquacao}[2]{%
+    \addcontentsline{loe}{Equacao}{\protect Equação \theequation. #1}\par}
+
 \begin{document}
 \newcounter{equationCounter}
 
@@ -108,9 +121,15 @@
 \input{1_introducao.tex} \clearpage
 \input{2_fundamentacao.tex} \clearpage
 \input{3_projeto.tex} \clearpage
-\input{src/4_consideracoes_finais} \clearpage
+\input{4_desenvolvimento.tex} \clearpage
+\input{5_resultados.tex} \clearpage
+\input{6_consideracoes_finais.tex} \clearpage
 
 \postextual
-\bibliography{refs.bib}  \clearpage
+\bibliography{refs}  \clearpage
+
+\begin{apendicesenv}
+\input{apendice_a.tex}
+\end{apendicesenv}
 
 \end{document}
