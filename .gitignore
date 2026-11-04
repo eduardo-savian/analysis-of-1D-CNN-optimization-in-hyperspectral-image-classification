@@ -49,3 +49,6 @@ __pycache__/
 *.egg-info/
 *.py[cod]
 .ipynb_checkpoints/
+
+# Metadados que o Windows grava em arquivos baixados
+*:Zone.Identifier

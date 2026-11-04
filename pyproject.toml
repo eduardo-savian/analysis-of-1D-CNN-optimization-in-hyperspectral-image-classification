@@ -5,7 +5,7 @@ description = "Classificação hiperespectral com CNN 1D — TCC, otimização d
 requires-python = ">=3.12"
 # As versões exatas ficam no requirements.txt; aqui só o que o pacote importa.
 dependencies = [
-    "numpy", "scipy", "scikit-learn", "pandas", "matplotlib", "seaborn",
+    "numpy", "scipy", "scikit-learn", "pandas", "matplotlib",
     "opencv-contrib-python-headless", "torch", "optuna", "ipython",
 ]
 
