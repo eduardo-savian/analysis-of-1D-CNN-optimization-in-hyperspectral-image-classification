@@ -1,7 +1,7 @@
 \chapter{Projeto}
 \label{cap:proj}
 
-Neste trabalho será proposta a implementação de estratégias de otimização de classificação de imagens hiperespectrais utilizando CNNs 1D combinadas com técnicas de segmentação espacial. A partir de arquiteturas e algoritmos encontrados na literatura, procura-se fazer uma análise com base nas métricas elencadas neste projeto. O capítulo está organizado da seguinte forma: inicialmente é apresentada a visão geral do sistema proposto. Na sequência, são dispostas as premissas que norteiam o desenvolvimento. Posteriormente, são descritos os materiais e métodos utilizados e os requisitos levantados, seguidos do detalhamento da arquitetura do sistema e dos algoritmos. Ao fim, são apresentados o plano de verificação, a análise de riscos e o cronograma de atividades.
+Neste trabalho será proposta a implementação de estratégias de otimização de classificação de imagens hiperespectrais utilizando CNNs 1D combinadas com técnicas de segmentação espacial. A partir de arquiteturas e algoritmos encontrados na literatura, procura-se fazer uma análise com base nas métricas elencadas neste projeto. O capítulo está organizado da seguinte forma: inicialmente é apresentada a visão geral do sistema proposto. Na sequência, são dispostas as premissas que norteiam o desenvolvimento. Posteriormente, são descritos os materiais e métodos utilizados e os requisitos levantados, seguidos do detalhamento da arquitetura do sistema e dos algoritmos. Ao fim, são apresentados o plano de verificação e a análise de riscos.
 
 \section{Visão Geral}
 
@@ -15,7 +15,28 @@ A \autoref{fig:visaoGeral} sumariza a relação entre os principais componentes 
     \centering
     \captionsetup{justification=centering}
     \caption{Principais componentes do projeto}
-     \includegraphics[width=0.8\textwidth]{src/assets/projeto/visaoGeral.png}\\
+    \begin{tikzpicture}[
+        font=\footnotesize,
+        caixa/.style={draw, rounded corners=2pt, align=center, inner sep=3pt, minimum height=0.9cm},
+        seta/.style={-{Stealth[length=2mm]}, thick},
+        ajuste/.style={-{Stealth[length=2mm]}, dashed, black!60}
+    ]
+        \node[caixa, minimum width=2.0cm] (hsi) at (0, 0) {Imagem\\hiperespectral};
+        \node[caixa, minimum width=1.4cm] (pca) at (2.3, 0) {PCA};
+        \node[caixa, fill=laranjafig!15, minimum width=2.6cm] (cnn) at (5.1, 1.35) {CNN 1D\\(espectral)};
+        \node[caixa, fill=verdefig!15, minimum width=2.6cm, minimum height=0.8cm] (hpo) at (5.1, 0) {Otimização de\\hiperparâmetros};
+        \node[caixa, fill=azulfig!15, minimum width=2.6cm] (seg) at (5.1, -1.35) {Segmentação\\(espacial)};
+        \node[caixa, minimum width=2.2cm] (cat) at (8.5, 0) {Concatenação};
+        \node[caixa, minimum width=2.0cm] (cls) at (11.2, 0) {Classificação\\final};
+        \draw[seta] (hsi) -- (pca);
+        \draw[seta] (pca.east) -- ++(0.4,0) |- (cnn.west);
+        \draw[seta] (pca.east) -- ++(0.4,0) |- (seg.west);
+        \draw[seta] (cnn.east) -- ++(0.45,0) |- (cat.west);
+        \draw[seta] (seg.east) -- ++(0.45,0) |- (cat.west);
+        \draw[seta] (cat) -- (cls);
+        \draw[ajuste] (hpo) -- (cnn);
+        \draw[ajuste] (hpo) -- (seg);
+    \end{tikzpicture}
     \captionsetup{justification=raggedright}
     \caption*{Fonte: Elaborada pelo autor}
     \label{fig:visaoGeral}
@@ -170,7 +191,33 @@ A arquitetura proposta segue uma organização modular que permite experimentaç
     \centering
     \captionsetup{justification=centering}
     \caption{Arquitetura modular do sistema}
-     \includegraphics[width=0.9\textwidth]{src/assets/projeto/arquiteturaSistema.png}\\
+    \begin{tikzpicture}[
+        font=\footnotesize,
+        caixa/.style={draw, rounded corners=2pt, align=center, inner sep=3pt, minimum height=0.9cm},
+        seta/.style={-{Stealth[length=2mm]}, thick},
+        ajuste/.style={-{Stealth[length=2mm]}, dashed, black!60}
+    ]
+        \node[caixa, minimum width=1.6cm] (dados) at (0, 0) {Módulo de\\Dados};
+        \node[caixa, fill=laranjafig!15, minimum width=2.1cm] (pre) at (2.55, 0.75) {PCA\\(pré-proces.)};
+        \node[caixa, fill=laranjafig!15, minimum width=1.4cm] (cnn) at (4.6, 0.75) {CNN 1D};
+        \node[caixa, fill=azulfig!15, minimum width=3.8cm] (seg) at (3.4, -0.75) {Segmentação Espacial\\(SEEDS, LSC ou Watershed)};
+        \node[draw, dashed, rounded corners=4pt, inner sep=0.18cm, fit=(pre)(cnn)(seg),
+              label={[font=\scriptsize, text=black!60, anchor=south west]north west:executadas em paralelo}] (par) {};
+        \node[caixa, minimum width=1.3cm] (fus) at (6.85, 0) {Fusão};
+        \node[caixa, minimum width=2.0cm] (cls) at (8.9, 0) {Classificação};
+        \node[caixa, minimum width=1.7cm] (aval) at (11.15, 0) {Avaliação};
+        \node[caixa, fill=verdefig!15, minimum width=2.6cm] (hpo) at (11.15, -2.2) {Otimização de\\hiperparâmetros\\(grade ou bayesiana)};
+        \draw[seta] (dados.east) -- ++(0.35,0) |- (pre.west);
+        \draw[seta] (dados.east) -- ++(0.35,0) |- (seg.west);
+        \draw[seta] (pre) -- (cnn);
+        \draw[seta] (cnn.east) -- ++(0.55,0) |- (fus.west);
+        \draw[seta] (seg.east) -- ++(0.55,0) |- (fus.west);
+        \draw[seta] (fus) -- (cls);
+        \draw[seta] (cls) -- (aval);
+        \draw[seta] (aval) -- (hpo);
+        \draw[ajuste] (hpo.west) -| (seg.south);
+        \draw[ajuste] (hpo.east) -- ++(0.35,0) |- (4.6, 2.05) -- (cnn.north);
+    \end{tikzpicture}
     \captionsetup{justification=raggedright}
     \caption*{Fonte: Elaborada pelo autor}
     \label{fig:arquiteturaSistema}
@@ -210,10 +257,30 @@ A arquitetura da CNN 1D é projetada para processar as características espectra
 \begin{figure}[H]
     \centering
     \captionsetup{justification=centering}
-    \caption{Arquitetura detalhada da CNN 1D}
-    \includegraphics[width=0.9\textwidth]{src/assets/projeto/arquiteturaCNN.png}\\
+    \caption{Arquitetura da CNN 1D prevista no projeto}
+    \begin{tikzpicture}[
+        font=\footnotesize,
+        camada/.style={draw, rounded corners=2pt, align=center, inner sep=3pt, minimum height=0.85cm, minimum width=1.9cm},
+        seta/.style={-{Stealth[length=2mm]}, thick}
+    ]
+        \node[camada, fill=black!6] (x) {Entrada\\$n$ bandas};
+        \node[camada, fill=laranjafig!15, right=0.35cm of x] (c1) {Conv1D 16\\ReLU};
+        \node[camada, fill=black!6, right=0.35cm of c1] (p1) {\textit{Max-pooling}};
+        \node[camada, fill=laranjafig!15, right=0.35cm of p1] (c2) {Conv1D 32\\ReLU};
+        \node[camada, fill=black!6, right=0.35cm of c2] (p2) {\textit{Max-pooling}};
+        \node[camada, fill=laranjafig!15, below=1.0cm of x] (c3) {Conv1D 64\\ReLU};
+        \node[camada, fill=black!6, right=0.35cm of c3] (p3) {\textit{Max-pooling}};
+        \node[camada, fill=laranjafig!15, right=0.35cm of p3] (c4) {Conv1D 128\\ReLU};
+        \node[camada, fill=black!6, right=0.35cm of c4] (f) {Achatamento};
+        \node[camada, fill=verdefig!15, below=1.0cm of c3] (d1) {Densa 256\\\textit{dropout}};
+        \node[camada, fill=verdefig!15, right=0.35cm of d1] (d2) {Densa 128\\\textit{dropout}};
+        \node[camada, fill=verdefig!15, right=0.35cm of d2] (o) {Densa $C$\\\textit{softmax}};
+        \foreach \a/\b in {x/c1, c1/p1, p1/c2, c2/p2, c3/p3, p3/c4, c4/f, d1/d2, d2/o} \draw[seta] (\a) -- (\b);
+        \draw[seta] (p2.south) -- ++(0,-0.45) -| (c3.north);
+        \draw[seta] (f.south) -- ++(0,-0.45) -| (d1.north);
+    \end{tikzpicture}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor}
+    \caption*{Fonte: Elaborada pelo autor. $C$: número de classes da cena}
     \label{fig:arquiteturaCNN}
 \end{figure}
 
@@ -272,7 +339,24 @@ Utilizando a biblioteca \texttt{multiprocessing} do Python para a segmentação 
     \centering
     \captionsetup{justification=centering}
     \caption{Estratégia de paralelização: fluxo sequencial versus fluxo paralelo}
-    \includegraphics[width=0.7\textwidth]{src/assets/projeto/paralelizacao.png}\\
+    \begin{tikzpicture}[font=\footnotesize, x=1cm, y=1cm]
+        \tikzset{bloco/.style={draw, rounded corners=1pt, minimum height=0.6cm, inner sep=1pt, anchor=west}}
+        \node[anchor=east, font=\footnotesize\bfseries] at (-0.2, 2.6) {Sequencial};
+        \node[bloco, minimum width=1.2cm, fill=black!8] at (0, 2.6) {PCA};
+        \node[bloco, minimum width=3.6cm, fill=azulfig!25] at (1.2, 2.6) {Segmentação};
+        \node[bloco, minimum width=2.8cm, fill=laranjafig!25] at (4.8, 2.6) {CNN 1D};
+        \node[bloco, minimum width=1.4cm, fill=verdefig!25] at (7.6, 2.6) {Fusão};
+        \node[anchor=east, font=\footnotesize\bfseries] at (-0.2, 0.9) {Paralelo};
+        \node[bloco, minimum width=1.2cm, fill=black!8] at (0, 0.9) {PCA};
+        \node[bloco, minimum width=3.6cm, fill=azulfig!25] at (1.2, 1.3) {Segmentação};
+        \node[bloco, minimum width=2.8cm, fill=laranjafig!25] at (1.2, 0.5) {CNN 1D};
+        \node[bloco, minimum width=0.6cm, fill=black!20, font=\scriptsize] at (4.8, 0.9) {sinc.};
+        \node[bloco, minimum width=1.4cm, fill=verdefig!25] at (5.4, 0.9) {Fusão};
+        \draw[dashed, black!50] (9.0, 3.1) -- (9.0, -0.2);
+        \draw[dashed, black!50] (6.8, 1.8) -- (6.8, -0.2);
+        \draw[<->, black!60] (6.8, -0.1) -- (9.0, -0.1) node[midway, below, font=\scriptsize] {ganho};
+        \draw[-{Stealth[length=2mm]}] (0, -0.75) -- (9.6, -0.75) node[below left] {tempo};
+    \end{tikzpicture}
     \captionsetup{justification=raggedright}
     \caption*{Fonte: Elaborada pelo autor}
     \label{fig:paralelizacao}
@@ -300,7 +384,27 @@ Os hiperparâmetros a serem otimizados incluem:
     \centering
     \captionsetup{justification=centering}
     \caption{Fluxo da otimização de hiperparâmetros}
-    \includegraphics[width=0.7\textwidth]{src/assets/projeto/fluxoHPO.png}\\
+    \begin{tikzpicture}[
+        font=\footnotesize,
+        caixa/.style={draw, rounded corners=2pt, align=center, inner sep=3pt, minimum height=1.0cm, minimum width=3.0cm, text width=2.8cm},
+        decisao/.style={draw, diamond, aspect=1.6, align=center, inner sep=1.2pt, font=\scriptsize},
+        seta/.style={-{Stealth[length=2mm]}, thick}
+    ]
+        \node[caixa] (esp) at (0, 0) {Definir o\\espaço de busca};
+        \node[caixa] (sel) at (3.6, 0) {Selecionar uma\\configuração};
+        \node[caixa, fill=laranjafig!15] (tr) at (7.2, 0) {Treinar\\o modelo};
+        \node[caixa, fill=laranjafig!15] (av) at (10.8, 0) {Avaliar na\\validação};
+        \node[caixa, fill=verdefig!15, minimum width=2.6cm, text width=2.4cm] (best) at (0, -2.2) {Melhor\\configuração};
+        \node[decisao] (fim) at (3.6, -2.2) {Critério de\\parada?};
+        \node[caixa] (at) at (10.8, -2.2) {Atualizar a\\estratégia de busca};
+        \draw[seta] (esp) -- (sel);
+        \draw[seta] (sel) -- (tr);
+        \draw[seta] (tr) -- (av);
+        \draw[seta] (av) -- (at);
+        \draw[seta] (at) -- (fim);
+        \draw[seta] (fim) -- node[above, font=\scriptsize] {sim} (best);
+        \draw[seta] (fim) -- node[right, font=\scriptsize] {não} (sel);
+    \end{tikzpicture}
     \captionsetup{justification=raggedright}
     \caption*{Fonte: Elaborada pelo autor}
     \label{fig:fluxoHPO}
@@ -498,7 +602,7 @@ O \autoref{tab:validacaoDatasets} estabelece, para cada dataset, as metas de acu
 
 A análise de riscos identifica potenciais problemas que podem impactar o desenvolvimento e execução do projeto, estabelecendo estratégias de mitigação para cada cenário.
 
-O \autoref{tab:riscos} apresenta os principais riscos identificados, classificados quanto à probabilidade de ocorrência e ao impacto potencial no projeto. Nenhum risco foi classificado com probabilidade alta; o de maior impacto é o de o tempo de HPO exceder o cronograma, de probabilidade média e impacto alto.
+O \autoref{tab:riscos} apresenta os principais riscos identificados, classificados quanto à probabilidade de ocorrência e ao impacto potencial no projeto. Nenhum risco foi classificado com probabilidade alta; o de maior impacto é o de o tempo de HPO exceder o tempo disponível, de probabilidade média e impacto alto.
 
 \begin{quadro}[H]
     \centering
@@ -509,7 +613,7 @@ O \autoref{tab:riscos} apresenta os principais riscos identificados, classificad
         \textbf{Risco} & \textbf{Probab.} & \textbf{Impacto} & \textbf{Mitigação} \\
         \hline
 
-        Tempo de HPO excede cronograma & Média & Alto & Reduzir espaço de busca e limitar número máximo de avaliações \\
+        Tempo de HPO excede o tempo disponível & Média & Alto & Reduzir espaço de busca e limitar número máximo de avaliações \\
         \hline
 
         Recursos computacionais insuficientes & Baixa & Médio & Utilizar Google Colab Pro e reduzir o tamanho do lote \\
@@ -522,34 +626,4 @@ O \autoref{tab:riscos} apresenta os principais riscos identificados, classificad
         \hline
     \end{tabular}
     \label{tab:riscos}
-\end{quadro}
-
-\section{Cronograma}
-
-O cronograma apresentado no \autoref{tab:cronograma} distribui as atividades do TCC ao longo do primeiro semestre de 2026. A escrita da monografia é uma atividade contínua. As implementações seguem ordem de dependências. Os experimentos são concentrados na segunda metade do período.
-
-\begin{quadro}[H]
-    \centering
-    \caption{Cronograma de atividades do TCC}
-    \begin{tabular}{|p{0.40\textwidth}|c|c|c|c|c|c|}
-    \hline
-    \rowcolor[HTML]{C0C0C0}
-    \textbf{Atividade} & \textbf{Jan} & \textbf{Fev} & \textbf{Mar} & \textbf{Abr} & \textbf{Mai} & \textbf{Jun} \\
-    \hline
-    Escrita da Monografia & X & X & X & X & X & - \\
-    \hline
-    Implementação (CNN 1D, Segmentação, Fusão) & X & X & - & - & - & - \\
-    \hline
-    Implementação do Sistema de HPO & - & X & X & - & - & - \\
-    \hline
-    Implementação da Paralelização & - & - & X & - & - & - \\
-    \hline
-    Experimentos e Coleta de Métricas & - & - & X & X & X & - \\
-    \hline
-    Análise dos Resultados & - & - & - & - & X & X \\
-    \hline
-    Revisão Textual e Apresentação & - & - & - & X & X & X \\
-    \hline
-    \end{tabular}
-    \label{tab:cronograma}
 \end{quadro}

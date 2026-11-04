@@ -11,7 +11,7 @@ A imagem hiperespectral (HSI), dado de entrada da classificação estudada neste
     \centering
     \captionsetup{justification=centering}
     \caption{Imagens de satélite LANDSAT da área de Washington D.C. em diferentes bandas espectrais temáticas}
-    \includegraphics[width=0.95\textwidth]{src/assets/fundamentacao/landsat_bands.png}
+    \includegraphics[width=0.8\textwidth]{src/assets/fundamentacao/landsat_bands.png}
     \captionsetup{justification=raggedright}
     \caption*{Fonte: \citefigure{gonzalez2018digital}}
     \label{fig:landsat_bands}
@@ -23,7 +23,7 @@ Uma HSI tem alta resolução espectral, mas baixa resolução espacial \cite{Vie
     \centering
     \captionsetup{justification=centering}
     \caption{Estrutura de dados de uma imagem hiperespectral: (a) aquisição por sensor em movimento; (b) formação do hipercubo tridimensional; (c) dimensões espaciais e canais espectrais}
-    \includegraphics[width=0.95\textwidth]{src/assets/fundamentacao/hsi_structure.png}
+    \includegraphics[width=0.75\textwidth]{src/assets/fundamentacao/hsi_structure.png}
     \captionsetup{justification=raggedright}
     \caption*{Fonte: \citefigure{Qian2020}}
     \label{fig:hsi_structure}
@@ -52,7 +52,7 @@ O processamento de imagens pode ser categorizado em três níveis: baixo nível 
     \centering
     \captionsetup{justification=centering}
     \caption{Exemplo de operação de erosão morfológica aplicada a uma imagem binária usando elementos estruturantes de diferentes tamanhos}
-    \includegraphics[width=0.75\textwidth]{src/assets/fundamentacao/erosion_example.png}
+    \includegraphics[width=0.55\textwidth]{src/assets/fundamentacao/erosion_example.png}
     \captionsetup{justification=raggedright}
     \caption*{Fonte: \citefigure{gonzalez2018digital}}
     \label{fig:erosion_example}
@@ -64,7 +64,7 @@ A Figura \ref{fig:segmentation_cells} exemplifica o processamento de nível méd
     \centering
     \captionsetup{justification=centering}
     \caption{Exemplo de processamento de nível médio: segmentação de células em imagens microscópicas}
-    \includegraphics[width=0.65\textwidth]{src/assets/fundamentacao/segmentation_cells.png}
+    \includegraphics[width=0.5\textwidth]{src/assets/fundamentacao/segmentation_cells.png}
     \captionsetup{justification=raggedright}
     \caption*{Fonte: \citefigure{gonzalez2018digital}}
     \label{fig:segmentation_cells}
@@ -193,7 +193,7 @@ A natureza dos dados e do problema determina qual paradigma de aprendizado usar 
     \centering
     \captionsetup{justification=centering}
     \caption{Paradigmas de aprendizagem e sua relação com os tipos de dados de treinamento}
-    \includegraphics[width=0.75\textwidth]{src/assets/fundamentacao/learning_paradigms.png}
+    \includegraphics[width=0.65\textwidth]{src/assets/fundamentacao/learning_paradigms.png}
     \captionsetup{justification=raggedright}
     \caption*{Fonte: \citefigure{WhatIsMachineLearning}}
     \label{fig:learning_paradigms}
@@ -225,7 +225,7 @@ z, & \text{se } z > 0 \\
     \centering
     \captionsetup{justification=centering}
     \caption{Redes neurais multicamadas e backpropagation: (a) transformação do espaço de entrada; (b) regra da cadeia; (c) equações do forward pass; (d) equações do backward pass}
-    \includegraphics[width=0.95\textwidth]{src/assets/fundamentacao/backpropagation.png}
+    \includegraphics[width=0.75\textwidth]{src/assets/fundamentacao/backpropagation.png}
     \captionsetup{justification=raggedright}
     \caption*{Fonte: \citefigure{DeeplearningLC}}
     \label{fig:backpropagation}
@@ -272,7 +272,7 @@ s(t) = (x \ast w)(t) = \sum_{a=-\infty}^{\infty} x(a) \cdot w(t-a)
     \centering
     \captionsetup{justification=centering}
     \caption{Operação de convolução mostrando a aplicação do kernel sobre a matriz de entrada}
-    \includegraphics[width=0.75\textwidth]{src/assets/fundamentacao/convolution_operation.png}
+    \includegraphics[width=0.6\textwidth]{src/assets/fundamentacao/convolution_operation.png}
     \captionsetup{justification=raggedright}
     \caption*{Fonte: \citefigure{DeeplearningLC}}
     \label{fig:convolution_operation}
@@ -322,21 +322,11 @@ Neste trabalho, a CNN é treinada em GPU, exceto nas medições de paralelismo, 
 
 \subsection{Arquitetura de GPUs e CUDA Cores}
 
-As Unidades de Processamento Gráfico (GPUs) evoluíram de aceleradores gráficos especializados para processadores paralelos de propósito geral \cite{CUDA_Programming}. Enquanto uma CPU tem tipicamente dezenas de núcleos otimizados para execução sequencial com baixa latência, uma GPU NVIDIA tem milhares de núcleos de processamento mais simples, os \textit{CUDA cores}, organizados em unidades chamadas \textit{Streaming Multiprocessors} (SMs) \cite{CUDA_Programming}. A GPU usada nos experimentos deste trabalho, uma NVIDIA RTX 5070 Laptop, é descrita na \autoref{sec:ambiente}.
+As Unidades de Processamento Gráfico (GPUs) evoluíram de aceleradores gráficos especializados para processadores paralelos de propósito geral \cite{CUDA_Programming}. Enquanto uma CPU tem tipicamente dezenas de núcleos otimizados para execução sequencial com baixa latência, uma GPU NVIDIA tem milhares de núcleos de processamento mais simples, os \textit{CUDA cores}, organizados em unidades chamadas \textit{Streaming Multiprocessors} (SMs) \cite{CUDA_Programming}.
 
 Cada \textit{CUDA core} executa operações aritméticas de ponto flutuante, como soma, multiplicação e a operação fusionada de multiplicação e soma (FMA). Os \textit{CUDA cores} de um SM seguem o modelo SIMT (\textit{Single Instruction, Multiple Threads}): grupos de 32 threads, chamados \textit{warps}, executam a mesma instrução ao mesmo tempo sobre dados diferentes \cite{CUDA_Programming}. Essa arquitetura é eficiente para operações com paralelismo de dados, em que a mesma operação é aplicada a muitos elementos independentes.
 
 A plataforma CUDA (\textit{Compute Unified Device Architecture}), desenvolvida pela NVIDIA, fornece um modelo de programação que permite explorar o paralelismo das GPUs em aplicações de computação geral \cite{CUDA_Programming}. O modelo de execução organiza as threads em três níveis: threads individuais são agrupadas em blocos, e os blocos, em grades. Como o hardware distribui os blocos entre os SMs disponíveis, o mesmo programa se adapta a GPUs com números diferentes de SMs \cite{CUDA_Architecture}.
-
-A memória da GPU também é organizada em hierarquia \cite{CUDA_Programming}:
-\begin{itemize}
-    \item \textbf{Memória Global}: Memória principal da GPU, externa ao chip, acessível por todas as threads; é a de maior capacidade e a de maior latência.
-    \item \textbf{Memória Compartilhada}: Memória dentro do chip, de baixa latência, acessível pelas threads de um mesmo bloco.
-    \item \textbf{Registradores}: Memória privada de cada thread, a de menor latência.
-    \item \textbf{Caches L1/L2}: Caches automáticos que reduzem a latência de acesso à memória global.
-\end{itemize}
-
-O padrão de acesso à memória pesa no desempenho de aplicações CUDA: quando threads consecutivas acessam endereços consecutivos, os acessos são coalescidos, o que aumenta a largura de banda efetiva \cite{Jorda_cuDNN}.
 
 \subsection{Paralelização de Operações de Convolução}
 
@@ -348,15 +338,7 @@ Y[n, c_{out}, i, j] = \sum_{c_{in}=0}^{C_{in}-1} \sum_{m=0}^{k_h-1} \sum_{l=0}^{
 
 Nenhum elemento $Y[n, c_{out}, i, j]$ depende do cálculo de outro elemento da saída; os $N \times C_{out} \times H_{out} \times W_{out}$ elementos podem, portanto, ser calculados simultaneamente, se houver recursos computacionais suficientes. Na CNN 1D, a dimensão da altura desaparece e a propriedade se mantém: cada posição do mapa de características ao longo do espectro pode ser calculada em paralelo.
 
-Na prática, \textit{frameworks} de aprendizado profundo como TensorFlow e PyTorch usam a biblioteca cuDNN da NVIDIA para executar as convoluções em GPU \cite{Jorda_cuDNN}. A cuDNN implementa vários algoritmos de convolução:
-
-\begin{itemize}
-    \item \textbf{GEMM Implícita (IMPLICIT\_GEMM)}: Trata a convolução como multiplicação de matrizes, formando implicitamente a matriz da operação im2col, e aproveita rotinas de multiplicação de matrizes otimizadas.
-    \item \textbf{Convolução Baseada em FFT}: Usa a transformada rápida de Fourier para converter convoluções em multiplicações elemento a elemento no domínio da frequência.
-    \item \textbf{Convolução Winograd}: Reduz o número de multiplicações por meio de transformações algébricas, o que compensa em \textit{kernels} pequenos, como os de $3 \times 3$ \cite{Winograd_Convolution}.
-\end{itemize}
-
-A cuDNN escolhe o algoritmo de cada configuração de parâmetros por heurísticas ou por medição em tempo de execução \cite{Jorda_cuDNN}.
+Na prática, \textit{frameworks} de aprendizado profundo como TensorFlow e PyTorch usam a biblioteca cuDNN da NVIDIA, que escolhe, para cada configuração da camada, um entre vários algoritmos de convolução \cite{Jorda_cuDNN}.
 
 \subsection{Estratégias de Paralelização para o Fluxo de Classificação}
 
@@ -366,65 +348,75 @@ O treinamento e a inferência de CNNs admitem paralelismo em mais de um nível \
 
 \textbf{Paralelismo Intra-Camada}: Dentro de uma camada convolucional, os elementos de saída são calculados em paralelo nos \textit{CUDA cores}. As implementações em GPU, como a cuDNN, exploram esse paralelismo automaticamente, sem intervenção do programador.
 
-\textbf{Paralelismo entre Etapas}: Etapas que não dependem uma da outra podem ser executadas concorrentemente. No fluxo de \citeonline{Souza2023}, há independência desse tipo em dois pontos. Na preparação dos dados, o ramo espectral, que reduz o espectro por PCA, e o ramo espacial, que compõe as três primeiras componentes principais e segmenta a imagem, partem da mesma cena e só se reúnem na montagem das entradas da rede. Na inferência, a segmentação e as convoluções da rede também são independentes até a fusão:
-\begin{itemize}
-    \item a segmentação gera o mapa de superpixels e é executada em CPU pelo OpenCV, que libera o GIL durante o cálculo (\autoref{sec:concorrencia});
-    \item a CNN 1D passa o espectro de cada pixel pelas convoluções e extrai as características espectrais;
-    \item as duas operações leem a mesma cena, mas nenhuma usa o resultado da outra: as convoluções não dependem do mapa de segmentação;
-    \item a sincronização só é necessária no ponto de fusão, em que a concatenação precisa do identificador do superpixel de cada pixel.
-\end{itemize}
-
-Essas duas oportunidades correspondem, neste trabalho, ao paralelismo entre os ramos do pré-processamento e à fusão concorrente (\autoref{sec:desParalelismo}). Na fusão concorrente, medida no experimento 14, os identificadores de superpixel e as classes previstas coincidiram com os da execução em lote em todas as execuções (\autoref{subsec:resFusao}). A biblioteca padrão do Python oferece os dois mecanismos de execução, threads e processos, além de uma interface de alto nível que abstrai a criação e o gerenciamento de ambos \cite{Python_Threading}; a escolha entre eles e o efeito do GIL são tratados na \autoref{sec:concorrencia}.
-
-O \textit{speedup} teórico máximo do paralelismo entre etapas é dado pela lei de Amdahl (\autoref{sec:concorrencia}). Se $T_{seg}$ é o tempo de segmentação e $T_{cnn}$ é o tempo da CNN no fluxo sequencial, o tempo do fluxo paralelo será aproximadamente $\max(T_{seg}, T_{cnn}) + T_{overhead}$, em que $T_{overhead}$ é a sobrecarga de criar as threads e sincronizá-las.
+\textbf{Paralelismo entre Etapas}: Etapas que não dependem uma da outra podem ser executadas concorrentemente. No fluxo de \citeonline{Souza2023}, isso ocorre em dois pontos. Na preparação dos dados, o ramo espectral, que reduz o espectro por PCA, e o ramo espacial, que compõe as três primeiras componentes principais e segmenta a imagem, partem da mesma cena e só se reúnem na montagem das entradas da rede. Na inferência, a segmentação, executada em CPU pelo OpenCV, e as convoluções da rede também são independentes: as convoluções não usam o mapa de segmentação, e a sincronização só é necessária na concatenação, que precisa do identificador do superpixel de cada pixel. Essas duas oportunidades correspondem, neste trabalho, ao paralelismo entre os ramos do pré-processamento e à fusão concorrente (\autoref{sec:desParalelismo}); a biblioteca padrão do Python oferece threads e processos para executá-las \cite{Python_Threading}.
 
 \section{Concorrência em CPU}
 \label{sec:concorrencia}
 
-A seção anterior tratou sobretudo do paralelismo dentro de uma operação, explorado pela GPU. O paralelismo entre etapas é de outra natureza: na fusão espectral-espacial, a segmentação, executada em CPU pelo OpenCV, e as convoluções da rede só se encontram no ponto de fusão. A coordenação dessas etapas exige os conceitos clássicos de concorrência dos sistemas operacionais, apresentados a seguir.
+O paralelismo entre etapas exige os conceitos clássicos de concorrência dos sistemas operacionais. Na fusão espectral-espacial, a segmentação, executada em CPU pelo OpenCV, e as convoluções da rede só se encontram no ponto de fusão.
 
 \subsection{Threads, Processos e o GIL}
 
-Um processo é um programa em execução com espaço de endereçamento próprio; uma thread é um fluxo de execução dentro de um processo, e as threads de um mesmo processo compartilham sua memória \cite{Silberschatz2018}. A criação de uma thread tem baixo custo e não exige cópia de dados, mas o compartilhamento obriga o programador a coordenar o acesso aos dados comuns. Processos são isolados: para trocar dados entre eles é preciso serializá-los e copiá-los, o que tem custo proporcional ao volume transferido.
+Um processo é um programa em execução com espaço de endereçamento próprio; uma thread é um fluxo de execução dentro de um processo, e as threads de um mesmo processo compartilham sua memória \cite{Silberschatz2018}. Criar uma thread é barato e não copia dados; processos são isolados, e trocar dados entre eles exige serializá-los e copiá-los, com custo proporcional ao volume transferido.
 
-No interpretador de referência do Python (CPython), uma trava global, o \textit{Global Interpreter Lock} (GIL), garante que apenas uma thread execute \textit{bytecode} Python por vez \cite{PEP703}. A consequência é que a execução de código Python puro em várias threads não ocorre em paralelo, mesmo em uma máquina com muitos núcleos. Código nativo que libera o GIL durante o cálculo --- como as rotinas de álgebra linear do NumPy, o OpenCV e os \textit{kernels} do PyTorch --- é executado em paralelo normalmente. O ganho de usar threads depende, portanto, da fração do trabalho que acontece fora do interpretador. A PEP 703 propõe tornar o GIL opcional, e versões experimentais do CPython sem a trava existem a partir da versão 3.13 \cite{PEP703}.
+No CPython, o interpretador de referência do Python, o \textit{Global Interpreter Lock} (GIL) garante que apenas uma thread execute \textit{bytecode} Python por vez \cite{PEP703}. Código Python puro em várias threads, portanto, não executa em paralelo, enquanto código nativo que libera o GIL durante o cálculo, como as rotinas do NumPy, o OpenCV e os \textit{kernels} do PyTorch, executa (\autoref{fig:gil}). O ganho das threads depende da fração do trabalho que acontece fora do interpretador.
+
+\begin{figure}[H]
+    \centering
+    \captionsetup{justification=centering}
+    \caption{Quatro threads de um processo executando código Python e código nativo que libera o GIL}
+    \begin{tikzpicture}[font=\footnotesize, x=0.8cm, y=0.5cm]
+        \foreach \dx/\titulo in {0/{Código Python: o GIL alterna as threads}, 9/{Código nativo: o GIL é liberado}} {
+            \node[anchor=south west, font=\footnotesize\bfseries] at (\dx-0.6, 3.7) {\titulo};
+            \foreach \i in {1,...,4} {
+                \node[anchor=east] at (\dx-0.1, 4-\i) {T\i};
+                \draw[black!20] (\dx, 4-\i) -- (\dx+8, 4-\i);
+            }
+            \draw[-{Stealth[length=2mm]}] (\dx, -0.9) -- (\dx+8, -0.9) node[below left] {tempo};
+        }
+        \foreach \k in {0,...,15} {
+            \pgfmathtruncatemacro{\linha}{mod(\k,4)+1}
+            \fill[azulfig] ({0.5*\k}, {4-\linha-0.3}) rectangle ++(0.45, 0.6);
+        }
+        \foreach \i in {1,...,4} {
+            \fill[laranjafig] (9, {4-\i-0.3}) rectangle ++(2.0, 0.6);
+        }
+    \end{tikzpicture}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor}
+    \label{fig:gil}
+\end{figure}
 
 \subsection{Exclusão Mútua e Variáveis de Condição}
 
-Quando duas threads acessam o mesmo dado e ao menos uma o modifica, o resultado pode depender da ordem de execução, situação chamada de condição de corrida. O trecho de código que acessa o dado compartilhado é a seção crítica, e a forma mais comum de protegê-la é um mutex (de \textit{mutual exclusion}): uma trava que só uma thread pode deter por vez \cite{Silberschatz2018}. Um mutex garante exclusão, mas não ordem: se a thread consumidora adquirir a trava antes da produtora, lerá o dado ainda não produzido.
-
-Para impor ordem, usa-se uma variável de condição, associada a um mutex e a um predicado. A thread consumidora adquire a trava, verifica o predicado e, se ele for falso, espera; durante a espera, a trava fica liberada para que a produtora possa adquiri-la. A produtora atualiza o dado, torna o predicado verdadeiro e notifica as que esperam. O conjunto formado pelo dado compartilhado, pela trava e pela condição corresponde ao conceito de monitor \cite{Hoare1974Monitors}, oferecido pela biblioteca padrão do Python. Outra primitiva usada neste trabalho é a barreira, que bloqueia um grupo de threads até que todas cheguem ao mesmo ponto.
+Quando duas threads acessam o mesmo dado e ao menos uma o modifica, o resultado pode depender da ordem de execução, situação chamada de condição de corrida. O trecho que acessa o dado compartilhado é a seção crítica, protegida em geral por um mutex (de \textit{mutual exclusion}): uma trava que só uma thread detém por vez \cite{Silberschatz2018}. O mutex garante exclusão, mas não ordem: se a thread consumidora adquirir a trava antes da produtora, lerá o dado ainda não produzido. Para impor ordem, usa-se uma variável de condição, associada ao mutex e a um predicado: a consumidora verifica o predicado e, se ele for falso, espera com a trava liberada, até que a produtora atualize o dado e a notifique. Esse conjunto corresponde ao conceito de monitor \cite{Hoare1974Monitors}. A barreira, outra primitiva usada neste trabalho, bloqueia um grupo de threads até que todas cheguem ao mesmo ponto.
 
 \subsection{Lei de Amdahl e \textit{Speedup}}
 
-O \textit{speedup} de uma versão paralela é a razão entre o tempo de execução de uma versão de referência e o tempo de execução da versão paralela. A escolha da referência é parte da medição: comparar uma versão paralela em CPU com uma sequencial em GPU, por exemplo, mede a diferença de dispositivo junto com a de paralelismo. A lei de Amdahl limita o \textit{speedup} em função da fração do trabalho que não pode ser paralelizada \cite{Amdahl1967}. Se uma fração $p$ do tempo de execução pode ser dividida entre $N$ unidades, o \textit{speedup} máximo é:
+O \textit{speedup} é a razão entre o tempo de uma versão de referência e o da versão paralela, e a escolha da referência é parte da medição: comparar uma versão paralela em CPU com uma sequencial em GPU mede também a diferença de dispositivo. Pela lei de Amdahl \cite{Amdahl1967}, se uma fração $p$ do tempo de execução pode ser dividida entre $N$ unidades, o \textit{speedup} máximo é:
 
 \begin{equation}
 S(N) = \frac{1}{(1 - p) + \dfrac{p}{N}}
 \end{equation}
 \addEquacao{Lei de Amdahl}{13}
 
-\noindent Dois corolários orientam este trabalho. Primeiro, paralelizar uma etapa que responde por 1\% do tempo total muda o tempo total em no máximo 1\%. Segundo, quando duas etapas independentes de durações $T_1$ e $T_2$ passam a ser executadas concorrentemente, o \textit{speedup} não pode exceder:
+\noindent Dois corolários orientam este trabalho. Paralelizar uma etapa que responde por 1\% do tempo total muda esse tempo em no máximo 1\%. E, quando duas etapas independentes de durações $T_1$ e $T_2$ passam a ser executadas concorrentemente, o \textit{speedup} não pode exceder:
 
 \begin{equation}
 S_{\max} = \frac{T_1 + T_2}{\max(T_1, T_2)}
 \end{equation}
 \addEquacao{Teto do Paralelismo entre Duas Etapas}{14}
 
-\noindent que vale 2 apenas quando as etapas têm a mesma duração. A distância entre o \textit{speedup} medido e esse teto decorre da sobrecarga (\textit{overhead}) de coordenar a execução: criar threads ou processos, serializar dados e sincronizar. Há ainda a contenção: tarefas paralelas que disputam o mesmo recurso, seja a largura de banda de memória, o \textit{cache} ou o próprio GIL, tornam-se mais lentas do que seriam se executadas isoladamente.
+\noindent que vale 2 apenas quando as etapas têm a mesma duração. A distância até esse teto vem da sobrecarga (\textit{overhead}) de coordenar a execução, isto é, criar threads ou processos, serializar dados e sincronizar, e da contenção: tarefas que disputam a banda de memória, o \textit{cache} ou o GIL ficam mais lentas do que seriam sozinhas.
 
 \section{Otimização de Hiperparâmetros}
 \label{sec:fundHPO}
 
-Hiperparâmetros são as escolhas feitas antes do treino --- taxa de aprendizado, \textit{dropout}, tamanho do lote, número de componentes do PCA, parâmetros do segmentador ---, enquanto os parâmetros (os pesos) são o que o treino aprende. A Otimização de Hiperparâmetros (HPO) automatiza a escolha: cada avaliação de uma combinação, chamada \textit{trial}, consiste em treinar e validar um modelo, e o problema é encontrar uma boa combinação com poucos \textit{trials} \cite{WU201926}.
+Hiperparâmetros são as escolhas feitas antes do treino, como a taxa de aprendizado, o \textit{dropout}, o tamanho do lote, o número de componentes do PCA e os parâmetros do segmentador; os parâmetros, os pesos, são o que o treino aprende. A Otimização de Hiperparâmetros (HPO) automatiza a escolha: cada avaliação de uma combinação, chamada \textit{trial}, consiste em treinar e validar um modelo \cite{WU201926}.
 
-A busca em grade avalia todas as combinações de um espaço discreto e fica inviável rapidamente, porque o número de combinações é o produto do número de valores de cada hiperparâmetro. A busca aleatória sorteia combinações e, com o mesmo orçamento, encontra configurações tão boas quanto as da grade ou melhores: na maioria dos problemas poucos hiperparâmetros importam, e o sorteio explora mais valores distintos de cada hiperparâmetro do que uma grade com o mesmo número de pontos \cite{Bergstra2012Random}.
+A busca em grade avalia todas as combinações de um espaço discreto e fica inviável rapidamente, porque o número de combinações é o produto do número de valores de cada hiperparâmetro. A busca aleatória sorteia combinações e, com o mesmo orçamento, encontra configurações tão boas quanto as da grade ou melhores, porque poucos hiperparâmetros costumam importar e o sorteio testa mais valores distintos de cada um \cite{Bergstra2012Random}. A Otimização Bayesiana usa os \textit{trials} já observados para decidir o próximo. Na forma clássica, ela modela a função objetivo por um processo gaussiano e escolhe o próximo \textit{trial} por uma função de aquisição, que equilibra exploração e explotação \cite{WU201926}; o \textit{Tree-structured Parzen Estimator} (TPE) estima as densidades $l(x)$ e $g(x)$ dos hiperparâmetros entre os melhores \textit{trials} e entre os demais e propõe a combinação que maximiza $l(x)/g(x)$ \cite{Bergstra2011TPE}, e a biblioteca Optuna o implementa \cite{Akiba2019Optuna}. Os algoritmos genéticos mantêm uma população de candidatos e a aprimoram a cada geração por seleção, cruzamento e mutação; o elitismo preserva os melhores de uma geração para a seguinte \cite{Holland1975}.
 
-A Otimização Bayesiana usa os \textit{trials} já observados para decidir o próximo. O \textit{Tree-structured Parzen Estimator} (TPE) separa os \textit{trials} observados em um grupo dos melhores e outro dos demais, estima as densidades $l(x)$ e $g(x)$ dos hiperparâmetros em cada grupo e propõe a combinação que maximiza a razão $l(x)/g(x)$, isto é, onde configurações boas são mais prováveis que as ruins \cite{Bergstra2011TPE}. A biblioteca Optuna implementa o TPE com suporte a hiperparâmetros categóricos e ordenados \cite{Akiba2019Optuna}.
-
-Os algoritmos genéticos, inspirados na evolução biológica, mantêm uma população de candidatos e a aprimoram a cada geração por seleção, cruzamento e mutação \cite{Holland1975}. A seleção por torneio escolhe, entre alguns candidatos sorteados, o de maior aptidão; o cruzamento combina os genes de dois pais; a mutação altera genes ao acaso, evitando convergência prematura; e o elitismo preserva os melhores de uma geração para a seguinte.
-
-Dois cuidados metodológicos valem para todas essas estratégias. A seleção deve usar exclusivamente o conjunto de validação: escolher pela acurácia de teste transforma o teste em parte do ajuste e invalida o número relatado. E, como cada \textit{trial} é um treino, o custo da busca pode ser reduzido avaliando os candidatos com poucas épocas e retreinando apenas o vencedor com o orçamento completo. Os agendadores ASHA e RASDA, descritos na \autoref{sec:trabRel}, seguem essa lógica ao interromper cedo os \textit{trials} de pior desempenho \cite{Aach2025}. O risco dessa busca de baixa fidelidade é que a ordenação dos candidatos obtida com poucas épocas não se mantenha com o treino completo; neste trabalho, o efeito do orçamento de épocas por \textit{trial} foi medido com 10, 40 e 200 épocas (\autoref{qua:estrategias}).
+A seleção deve usar exclusivamente o conjunto de validação, porque escolher pelo teste o transforma em parte do ajuste. Como cada \textit{trial} é um treino, o custo pode ser reduzido avaliando os candidatos com poucas épocas e retreinando só o vencedor, como fazem os agendadores ASHA e RASDA (\autoref{sec:trabRel}) \cite{Aach2025}. O risco é que a ordenação obtida com poucas épocas não se mantenha com o treino completo, o que foi medido neste trabalho com 10, 40 e 200 épocas por \textit{trial} (\autoref{tab:estrategias}).
 
 \section{Trabalhos Relacionados}
 \label{sec:trabRel}
@@ -474,7 +466,7 @@ O autor associa o TensorFlow à prototipagem rápida e o PyTorch a aplicações 
     \centering
     \captionsetup{justification=centering}
     \caption{Curvas de acurácia de treino e de validação do TensorFlow com as estratégias sequencial e de paralelismo de dados no CIFAR-10}
-    \includegraphics[width=0.4\textwidth]{src/assets/trabalhos_relacionados/comparative_analysis_of_tensorflow_and_pytorch_for_image_classification_using_cnn_with_parallelism_strategies_1.png}\\
+    \includegraphics[width=0.33\textwidth]{src/assets/trabalhos_relacionados/comparative_analysis_of_tensorflow_and_pytorch_for_image_classification_using_cnn_with_parallelism_strategies_1.png}\\
     \captionsetup{justification=raggedright}
     \caption*{Fonte: \citefigure{Nandan10910577}}
     \label{fig:tensorflow_results}
@@ -484,7 +476,7 @@ O autor associa o TensorFlow à prototipagem rápida e o PyTorch a aplicações 
     \centering
     \captionsetup{justification=centering}
     \caption{Curvas de acurácia de treino e de validação do PyTorch com as estratégias sequencial e de paralelismo de dados no CIFAR-10}
-    \includegraphics[width=0.4\textwidth]{src/assets/trabalhos_relacionados/comparative_analysis_of_tensorflow_and_pytorch_for_image_classification_using_cnn_with_parallelism_strategies_2.png}\\
+    \includegraphics[width=0.33\textwidth]{src/assets/trabalhos_relacionados/comparative_analysis_of_tensorflow_and_pytorch_for_image_classification_using_cnn_with_parallelism_strategies_2.png}\\
     \captionsetup{justification=raggedright}
     \caption*{Fonte: \citefigure{Nandan10910577}}
     \label{fig:pytorch_results}
@@ -494,7 +486,7 @@ O autor associa o TensorFlow à prototipagem rápida e o PyTorch a aplicações 
 
 O trabalho de \citeonline{Souza2023} é o ponto de partida deste estudo. O autor aborda a classificação de HSIs, em que há um compromisso entre complexidade computacional e acurácia, e observa que os métodos tradicionais se concentram nas características espectrais e subutilizam o contexto espacial, que pode melhorar a distinção entre classes. Os objetivos são avaliar o impacto do pré-processamento espacial na classificação por aprendizado de máquina, integrar a segmentação SEEDS a uma CNN 1D por concatenação, comparar o resultado com modelos de base e com o estado da arte, e quantificar o custo computacional da abordagem.
 
-A metodologia propõe uma arquitetura híbrida que combina uma CNN 1D, para a classificação espectral, com o SEEDS, para a segmentação espacial. A Figura \ref{fig:metodologia_souza} mostra o fluxo completo, da separação dos conjuntos de dados à extração das métricas de avaliação. O processamento tem dois ramos independentes, executados em sequência: o ramo superior realiza PCA, definição de parâmetros, segmentação e concatenação das características espaciais; o ramo inferior executa PCA e vetorização, divisão dos dados de treino e classificação pela CNN 1D. Na implementação original, a CNN 1D tem quatro camadas convolucionais, com 16, 32, 64 e 64 filtros, seguidas por duas camadas densas, de 128 e 64 neurônios, e pela camada de saída (\autoref{qua:camadas}). A fusão é feita por uma camada de concatenação, que junta às características extraídas pelas convoluções o identificador do superpixel do pixel. Os hiperparâmetros da rede e do SEEDS foram ajustados manualmente: o autor relata ter alterado, por conjunto de dados, a paciência da parada antecipada e outros parâmetros de treino ao buscar o melhor resultado \cite{Souza2023}.
+A metodologia propõe uma arquitetura híbrida que combina uma CNN 1D, para a classificação espectral, com o SEEDS, para a segmentação espacial. A Figura \ref{fig:metodologia_souza} mostra o fluxo completo, da separação dos conjuntos de dados à extração das métricas de avaliação. O processamento tem dois ramos independentes, executados em sequência: o ramo superior realiza PCA, definição de parâmetros, segmentação e concatenação das características espaciais; o ramo inferior executa PCA e vetorização, divisão dos dados de treino e classificação pela CNN 1D. Na implementação original, a CNN 1D tem quatro camadas convolucionais, com 16, 32, 64 e 64 filtros, seguidas por duas camadas densas, de 128 e 64 neurônios, e pela camada de saída (\autoref{tab:camadas}). A fusão é feita por uma camada de concatenação, que junta às características extraídas pelas convoluções o identificador do superpixel do pixel. Os hiperparâmetros da rede e do SEEDS foram ajustados manualmente: o autor relata ter alterado, por conjunto de dados, a paciência da parada antecipada e outros parâmetros de treino ao buscar o melhor resultado \cite{Souza2023}.
 
 \begin{figure}[H]
     \centering
@@ -506,7 +498,7 @@ A metodologia propõe uma arquitetura híbrida que combina uma CNN 1D, para a cl
     \label{fig:metodologia_souza}
 \end{figure}
 
-A validação experimental foi conduzida em três cenas: Indian Pines (21.025 pixels, 10.249 rotulados, 16 classes), Salinas Valley (111.104 pixels, 54.129 rotulados, 16 classes) e University of Pavia (207.400 pixels, 42.776 rotulados, 9 classes). As métricas avaliadas incluem Acurácia Geral (OA), Acurácia Média (AA), coeficiente Kappa, tempo de inferência e uso de memória. Com a fusão SEEDS, o autor reporta OA de 0,9142, AA de 0,8956 e Kappa de 0,9019 em Indian Pines, OA de 0,9928 em University of Pavia e OA de 0,9965 em Salinas Valley (\autoref{qua:linhaBase}); em Indian Pines, a fusão acrescentou 8,33, 8,79 e 9,47 pontos percentuais de OA, AA e Kappa à mesma rede sem a informação espacial. Essa configuração, com a fusão, é a referência contra a qual os ganhos deste trabalho são medidos. O fluxograma da Figura \ref{fig:metodologia_souza} mostra ainda o processo iterativo de treinamento, teste e extração de métricas, com validação baseada em um valor estimado de acurácia.
+A validação experimental foi conduzida em três cenas: Indian Pines (21.025 pixels, 10.249 rotulados, 16 classes), Salinas Valley (111.104 pixels, 54.129 rotulados, 16 classes) e University of Pavia (207.400 pixels, 42.776 rotulados, 9 classes). As métricas avaliadas incluem Acurácia Geral (OA), Acurácia Média (AA), coeficiente Kappa, tempo de inferência e uso de memória. Com a fusão SEEDS, o autor reporta OA de 0,9142, AA de 0,8956 e Kappa de 0,9019 em Indian Pines, OA de 0,9928 em University of Pavia e OA de 0,9965 em Salinas Valley (\autoref{tab:linhaBase}); em Indian Pines, a fusão acrescentou 8,33, 8,79 e 9,47 pontos percentuais de OA, AA e Kappa à mesma rede sem a informação espacial. Essa configuração, com a fusão, é a referência contra a qual os ganhos deste trabalho são medidos. O fluxograma da Figura \ref{fig:metodologia_souza} mostra ainda o processo iterativo de treinamento, teste e extração de métricas, com validação baseada em um valor estimado de acurácia.
 
 \subsection{Análise Comparativa dos Trabalhos Relacionados}
 
@@ -561,7 +553,7 @@ O \autoref{tab:trabRel} compara os três trabalhos com este. Os de \citeonline{A
         Python, PyTorch, Horovod, DeepSpeed, Ray Tune, CUDA 11.5, NVIDIA DALI& 
         Python, TensorFlow, PyTorch, Keras, CUDA& 
         Python, TensorFlow, Keras, scikit-learn, OpenCV, Google Colab&
-        Python, PyTorch, scikit-learn, OpenCV, Optuna, GPU local (RTX 5070 Laptop)\\
+        Python, PyTorch, scikit-learn, OpenCV, Optuna\\
         \hline
     \end{tabular}%
     }

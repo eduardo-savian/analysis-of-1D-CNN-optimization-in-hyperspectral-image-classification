@@ -1,0 +1,64 @@
+\chapter{Desvios em Relação ao Projeto}
+\label{ap:desvios}
+
+O \autoref{qua:desvios} reúne os desvios da implementação, e o \autoref{qua:desviosExperimentos}, os da campanha experimental, cada um com o seu motivo, em relação ao projeto do \autoref{cap:proj}.
+
+\begin{quadro}[H]
+    \centering
+    \small
+    \caption{Desvios em relação ao projeto: implementação}
+    \begin{tabular}{|>{\RaggedRight\arraybackslash}p{0.27\textwidth}|>{\RaggedRight\arraybackslash}p{0.27\textwidth}|>{\RaggedRight\arraybackslash}p{0.36\textwidth}|}
+        \hline
+        \rowcolor[HTML]{C0C0C0}
+        \textbf{Previsto} & \textbf{Realizado} & \textbf{Motivo} \\
+        \hline
+        TensorFlow/Keras ou PyTorch & PyTorch & Arquitetura, PCA, divisão dos dados e hiperparâmetros de treino do original preservados em PyTorch, com execução determinística; a regra de parada antecipada foi trocada (última linha deste quadro) \\
+        \hline
+        CNN com 16, 32, 64 e 128 filtros, \textit{max-pooling} e \textit{softmax} & 16, 32, 64 e 64 filtros, sem \textit{pooling}, saída em \textit{logits} & A arquitetura do notebook original, que é a referência; o \textit{softmax} é aplicado pela função de perda \\
+        \hline
+        Rótulo do superpixel codificado em \textit{one-hot} & Identificador numérico concatenado, como no original & A configuração original é a referência; o \textit{embedding} foi implementado para análise \\
+        \hline
+        Critério do RF03: classificação com fusão superior à puramente espectral & Fusão verificada pela concatenação e pela dimensão da entrada da cabeça densa (1.025 em Indian Pines); a vantagem sobre a rede puramente espectral é a reportada por \citeonline{Souza2023} & A fusão faz parte da configuração de referência e não é variável de estudo; nenhuma configuração sem fusão é treinada \\
+        \hline
+        SEEDS, LSC e Watershed & SEEDS, SLIC, LSC e Watershed & O SLIC é uma referência frequente nas avaliações de algoritmos de superpixels \cite{Stutz2018} e uma comparação natural \\
+        \hline
+        Busca em grade e Otimização Bayesiana com Ray Tune & Busca aleatória, TPE (Optuna) e algoritmo genético & As 2.916 combinações custariam 146 vezes uma busca de 20 \textit{trials}; o TPE aceita diretamente o segmentador, que é categórico; o genético acrescenta uma estratégia populacional (\autoref{sec:desHPO}) \\
+        \hline
+        Épocas, filtros, tamanho dos \textit{kernels} e otimizador entre os hiperparâmetros da CNN & Taxa de aprendizado, \textit{dropout}, \textit{weight decay} e lote; arquitetura e otimizador Adam fixos & A arquitetura e o otimizador são os do original, que é a referência; o orçamento de épocas foi estudado à parte, no experimento 08 \\
+        \hline
+        Google Colab ou HPC & GPU local (RTX 5070 Laptop) & Suficiente para as três cenas, com controle total do ambiente; os 15,8 GB de RAM impediram o pool de 32 processos (\autoref{sec:resParalelismo}) \\
+        \hline
+        Parada do notebook original: perda de validação, paciência 5 & Acurácia de validação, paciência 10, melhores pesos restaurados; meta de 0,95 nos experimentos de segmentadores e de hiperparâmetros & A mesma métrica governa a parada e a seleção \\
+        \hline
+    \end{tabular}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborado pelo autor}
+    \label{qua:desvios}
+\end{quadro}
+
+\begin{quadro}[H]
+    \centering
+    \small
+    \caption{Desvios em relação ao projeto: campanha experimental}
+    \begin{tabular}{|>{\RaggedRight\arraybackslash}p{0.27\textwidth}|>{\RaggedRight\arraybackslash}p{0.27\textwidth}|>{\RaggedRight\arraybackslash}p{0.36\textwidth}|}
+        \hline
+        \rowcolor[HTML]{C0C0C0}
+        \textbf{Previsto} & \textbf{Realizado} & \textbf{Motivo} \\
+        \hline
+        Segmentadores com CNN fixa & Segmentadores sob otimização conjunta & O desenho com CNN fixa se mostrou inválido (\autoref{cap:resultados}) \\
+        \hline
+        85\% das amostras para treino & 10\% desse treino nos experimentos de segmentadores e de hiperparâmetros & Cada execução fica cerca de 5,7 vezes mais barata em Indian Pines (\autoref{tab:fracaoTreino}), o que viabilizou os 540 \textit{trials} do experimento 08; validação e teste permanecem inteiros \\
+        \hline
+        Todos os experimentos nas três cenas & CNN fixa (05) em Indian Pines e University of Pavia; segmentadores (06) e fusão concorrente (14) nas três; busca (08), ganho da busca de hiperparâmetros (10) e partição (11 e 13) em Indian Pines & Custo de tempo; Indian Pines é a cena de menor acurácia na linha de base (OA 0,9051; \autoref{tab:linhaBase}) \\
+        \hline
+        Testes de significância estatística & Diferença afirmável quando excede duas vezes o desvio combinado das duas condições entre sementes & Com 3 a 5 sementes por condição, um critério simples e explícito; por usar o desvio das execuções, e não o erro padrão da média, é mais exigente que o mesmo limiar aplicado ao erro padrão; o pareamento por semente não foi explorado \\
+        \hline
+        Segmentação em processo e CNN na GPU, em paralelo & Threads e processos em CPU, em três níveis & Em Indian Pines, o pré-processamento é 0,9\% de uma execução e a inferência, 0,4\% (\autoref{sec:resParalelismo}); o tempo concentra-se no treino, e a comparação entre executores exige o mesmo dispositivo \\
+        \hline
+        Paralelização sobre a melhor configuração identificada & Fusão concorrente sobre a configuração original; partição com lote 64 e 25 épocas & Interessa o tempo entre executores, com a mesma configuração dos dois lados \\
+        \hline
+    \end{tabular}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborado pelo autor}
+    \label{qua:desviosExperimentos}
+\end{quadro}

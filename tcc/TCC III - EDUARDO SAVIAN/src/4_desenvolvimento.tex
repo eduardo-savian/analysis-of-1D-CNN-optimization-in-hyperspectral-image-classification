@@ -1,7 +1,7 @@
 \chapter{Desenvolvimento}
 \label{cap:desenvolvimento}
 
-Este capítulo descreve a implementação realizada a partir do projeto do \autoref{cap:proj}. Inicialmente são apresentados o ambiente e a organização do código, incluindo a reprodução da implementação original de \citeonline{Souza2023}, que é pré-requisito de todas as comparações. Na sequência, é descrito o fluxo de execução, do carregamento da cena às métricas. Em seguida, são apresentados os outros três eixos de otimização --- paralelismo, automação de hiperparâmetros e segmentadores ---, com destaque para a estratégia de fusão concorrente proposta pelo orientador. O capítulo termina com a organização dos experimentos e os desvios em relação ao projeto.
+Este capítulo descreve a implementação realizada a partir do projeto do \autoref{cap:proj}: o ambiente e a organização do código, incluindo a reprodução do trabalho de \citeonline{Souza2023}, o fluxo de execução, os eixos de paralelismo, hiperparâmetros e segmentadores, a organização dos experimentos e os desvios em relação ao projeto.
 
 \section{Ambiente e Organização do Código}
 \label{sec:ambiente}
@@ -12,7 +12,7 @@ A implementação foi desenvolvida em Python 3.12, com PyTorch 2.13 (CUDA 13.0) 
 
 \subsection{Organização em Pacote}
 
-O trabalho de referência foi entregue como um notebook Jupyter, com estado global compartilhado entre células e configurações espalhadas pelo código. Para que cada resultado deste trabalho fosse atribuível a uma configuração conhecida, a implementação foi reorganizada em um pacote Python, com um módulo por responsabilidade e cada definição em um único lugar. O \autoref{qua:pacote} resume a organização. O notebook foi mantido, mas apenas importa o pacote e guarda a narrativa e as células de execução; os experimentos também integram o pacote, de modo que a implementação e as medições compartilham exatamente o mesmo código.
+O trabalho de referência foi entregue como um notebook Jupyter, com estado global compartilhado entre células. Para que cada resultado fosse atribuível a uma configuração conhecida, a implementação foi reorganizada em um pacote Python, com um módulo por etapa e cada definição em um único lugar (\autoref{qua:pacote}). O notebook apenas importa o pacote e guarda as células de execução, e os experimentos usam o mesmo código da implementação.
 
 \begin{quadro}[H]
     \centering
@@ -24,19 +24,17 @@ O trabalho de referência foi entregue como um notebook Jupyter, com estado glob
         \hline
         Configuração e ambiente & Parâmetros de uma execução em um único objeto imutável; seleção de dispositivo, sementes e modo determinístico \\
         \hline
-        Dados & Carregamento das cenas, tabela de pixels, PCA, composição RGB, os quatro segmentadores e a divisão em treino, validação e teste \\
+        Dados & Carregamento das cenas, PCA, composição RGB, os quatro segmentadores, a execução dos dois ramos do pré-processamento e a divisão em treino, validação e teste \\
         \hline
         Modelo, treino e avaliação & CNN 1D com a fusão, laço de treino com parada antecipada e cálculo de OA, AA e Kappa \\
         \hline
         Pipeline & A única peça que conhece a ordem das etapas, chamada pelo notebook, pela busca de hiperparâmetros e pelos experimentos \\
         \hline
-        Paralelismo & Execução concorrente dos ramos do pré-processamento, partição da cena e fusão concorrente \\
+        Paralelismo & Partição da cena e fusão concorrente \\
         \hline
-        Hiperparâmetros & Espaço de busca, as três estratégias de busca, seleção dos vencedores e campanha final \\
+        Hiperparâmetros & Espaço de busca e as três estratégias de busca \\
         \hline
-        MLOps & Registro imutável de cada execução, campanhas e relatórios \\
-        \hline
-        Visualização & Diagnósticos, explicabilidade e as figuras deste trabalho \\
+        Figuras & As figuras deste trabalho, geradas a partir dos resultados gravados \\
         \hline
         Experimentos & Um módulo por experimento, com retomada a partir dos resultados já gravados \\
         \hline
@@ -49,34 +47,40 @@ O trabalho de referência foi entregue como um notebook Jupyter, com estado glob
 \subsection{Reprodução da Implementação Original}
 \label{subsec:reproducao}
 
-O notebook original foi escrito em TensorFlow/Keras, e a reimplementação foi feita em PyTorch. Antes de qualquer otimização, foi necessário garantir que a reimplementação fosse fiel ao original e que suas execuções se repetissem; sem isso, nenhuma diferença medida depois poderia ser atribuída à otimização. A reimplementação preserva a arquitetura do notebook --- 37.577 parâmetros em University of Pavia, idênticos aos do resumo do modelo Keras ---, o PCA com branqueamento, a divisão dos dados com as mesmas sementes do notebook (semente 42, com as mesmas 3.208 amostras de teste em University of Pavia) e os hiperparâmetros de treino: taxa de aprendizado 0,001, \textit{dropout} 0,5, lote 32 e teto de 60 épocas. A regra de parada antecipada foi trocada, como descrito na \autoref{subsec:desTreino}. Dois padrões do Keras precisaram ser replicados explicitamente, porque os do PyTorch são outros: a inicialização Xavier uniforme com viés nulo nas convoluções e nas camadas densas e o $\epsilon = 10^{-7}$ do otimizador Adam. O notebook original não fixa a semente da inicialização e do treino da rede, e a execução registrada nele obteve OA 0,9819, AA 0,9735 e Kappa 0,9760 em University of Pavia. Como os dois frameworks não partem dos mesmos pesos, a igualdade numérica com o Keras não é esperada: a equivalência é de arquitetura, de dados e de hiperparâmetros. A reimplementação, por sua vez, é determinística: com a configuração do notebook, execuções repetidas produzem o mesmo histórico de perda por época, os mesmos pesos finais e as mesmas métricas (OA 0,976309, AA 0,957918 e Kappa 0,968545).
+O notebook original foi escrito em TensorFlow/Keras, e a reimplementação, em PyTorch. Antes de qualquer otimização, foi preciso garantir que ela fosse fiel ao original e que suas execuções se repetissem. A reimplementação preserva a arquitetura (37.577 parâmetros em University of Pavia, os mesmos do modelo Keras), o PCA com branqueamento, a divisão dos dados com as mesmas sementes (as mesmas 3.208 amostras de teste em University of Pavia) e os hiperparâmetros de treino: taxa de aprendizado 0,001, \textit{dropout} 0,5, lote 32 e teto de 60 épocas. Dois padrões do Keras foram replicados explicitamente, a inicialização Xavier uniforme com viés nulo e o $\epsilon = 10^{-7}$ do Adam, e a regra de parada antecipada foi trocada (\autoref{subsec:desTreino}). Como os dois frameworks não partem dos mesmos pesos, a igualdade numérica com o Keras não é esperada. A reimplementação é determinística: com a configuração do notebook, execuções repetidas produzem o mesmo histórico de perda, os mesmos pesos e as mesmas métricas (OA 0,977244, AA 0,964401 e Kappa 0,969835 em University of Pavia).
 
-A reprodutibilidade das execuções seguintes depende de três mecanismos. O primeiro é a configuração explícita: todos os parâmetros de uma execução ficam em um único objeto, que é gravado junto ao resultado e permite reconstruí-la. O segundo é o modo determinístico, que fixa as sementes do NumPy e do PyTorch, desativa a escolha automática de algoritmos do cuDNN e a precisão reduzida TF32, e restringe o OpenCV a uma única thread. Esta última restrição foi necessária porque o LSC paralelo do OpenCV devolvia rótulos diferentes a cada chamada, como discutido na \autoref{sec:resOrganizacao}. O terceiro é um contrato de dados verificado antes de cada treino: os conjuntos de treino, validação e teste precisam ser disjuntos, os espectros não podem conter valores inválidos, as classes precisam estar numeradas de forma contígua e as duas entradas da rede precisam ter uma linha por amostra.
-
-Duas práticas de engenharia completam o eixo de organização. Cada \textit{trial} da busca de hiperparâmetros mantinha sua própria cópia dos dados preparados, embora dele só interessassem as métricas: 2,5 MB por \textit{trial} em Indian Pines, ou cerca de 450 MB em uma campanha de 180 \textit{trials}. Adotou-se, então, o ciclo de instanciar, treinar, extrair as métricas e liberar os recursos de cada \textit{trial}, de modo que apenas o melhor resultado corrente permanece em memória; com ele, a memória do processo cresceu 16 MB ao longo de uma campanha desse tamanho (\autoref{sec:resOrganizacao}). Além disso, toda execução longa tornou-se retomável: os resultados são gravados a cada configuração concluída de um experimento, e uma execução interrompida continua de onde parou, relendo o que já foi medido.
+A reprodutibilidade depende de três mecanismos: a configuração explícita, em que todos os parâmetros de uma execução ficam em um único objeto; o modo determinístico, que fixa as sementes, desativa a escolha automática de algoritmos do cuDNN e a precisão TF32 e restringe o OpenCV a uma thread, porque o LSC paralelo devolvia rótulos diferentes a cada chamada (\autoref{sec:resOrganizacao}); e um contrato de dados verificado antes de cada treino, que exige conjuntos disjuntos, espectros sem valores inválidos, classes contíguas e uma linha por amostra nas duas entradas da rede. Duas práticas completam o eixo: cada \textit{trial} da busca libera os seus dados e o seu modelo depois de extraídas as métricas, e toda execução longa é retomável, porque os resultados são gravados a cada configuração concluída.
 
 \section{Fluxo de Execução}
 \label{sec:fluxo}
 
-Uma execução completa percorre as etapas a seguir, sempre na mesma ordem:
+Uma execução percorre sempre as mesmas etapas:
 
 \begin{enumerate}
-    \item \textbf{Carregamento da cena}: o cubo hiperespectral $(H, W, B)$ e o mapa de verdade terrestre $(H, W)$ são lidos e achatados em uma tabela de $H \cdot W$ pixels;
-    \item \textbf{Ramo espectral}: os pixels sem rótulo (\textit{background}) são removidos e o PCA com branqueamento (\textit{whitening}) reduz as $B$ bandas a $K_b$ componentes (30 em Indian Pines e 15 em University of Pavia e Salinas Valley, como no original);
-    \item \textbf{Ramo espacial}: um PCA de 3 componentes sobre a cena inteira, incluindo o \textit{background}, gera uma composição RGB de 8 bits, que o segmentador divide em superpixels; o identificador da região de cada pixel rotulado é a segunda entrada da rede;
-    \item \textbf{Divisão dos dados}: as amostras são divididas em treino, validação e teste e, opcionalmente, o treino é subamostrado;
-    \item \textbf{Treino}: a CNN 1D é construída e treinada com parada antecipada;
-    \item \textbf{Avaliação}: o modelo treinado classifica o conjunto de teste, e OA, AA, Kappa e a matriz de confusão são calculados.
+    \item \textbf{Carregamento da cena}: o cubo $(H, W, B)$ e a verdade terrestre $(H, W)$ são lidos e achatados em uma tabela de $H \cdot W$ pixels;
+    \item \textbf{Ramo espectral}: os pixels sem rótulo são removidos, e o PCA com branqueamento reduz as $B$ bandas a $K_b$ componentes (30 em Indian Pines e 15 nas outras cenas, como no original);
+    \item \textbf{Ramo espacial}: um PCA de 3 componentes sobre a cena inteira gera uma composição RGB de 8 bits, que o segmentador divide em superpixels; o identificador da região de cada pixel rotulado é a segunda entrada da rede;
+    \item \textbf{Divisão dos dados}: as amostras são divididas em treino, validação e teste;
+    \item \textbf{Treino}: a CNN 1D é treinada com parada antecipada;
+    \item \textbf{Avaliação}: OA, AA, Kappa e a matriz de confusão são calculados no teste.
 \end{enumerate}
 
-Os dois ramos são independentes até o ponto de fusão. É essa independência que as estratégias de paralelismo da \autoref{sec:desParalelismo} exploram.
+Os dois ramos são independentes até o ponto de fusão, e é essa independência que as estratégias de paralelismo da \autoref{sec:desParalelismo} exploram.
 
 \subsection{Segmentadores}
 \label{subsec:desSegmentadores}
 
-Os quatro segmentadores --- SEEDS, SLIC (no modo SLICO), LSC e Watershed --- são implementados sobre o OpenCV e devolvem saídas no mesmo formato: o mapa de rótulos $(H, W)$ e a máscara de contornos. Por isso, trocar o segmentador não altera nenhuma outra etapa. O Watershed do OpenCV não fornece a máscara de contornos, que é então derivada do mapa de rótulos, e recebe marcadores dispostos em uma grade regular; as linhas que ele marca entre bacias foram mantidas como uma região própria.
+Os quatro segmentadores (SEEDS, SLIC no modo SLICO, LSC e Watershed) são implementados sobre o OpenCV e devolvem o mesmo formato, o mapa de rótulos $(H, W)$, de modo que trocar o segmentador não altera nenhuma outra etapa (\autoref{fig:segmentacoesIP}). O Watershed recebe marcadores em uma grade regular, e as linhas que ele marca entre bacias foram mantidas como uma região própria. Os parâmetros padrão são definidos por cena (\autoref{qua:paramSeg}); Indian Pines, com 145 $\times$ 145 pixels e talhões estreitos, usa regiões menores. O número de superpixels pedido ao SEEDS é um alvo: 350 em Indian Pines resultam em 81 regiões, e 150 em University of Pavia, em 45.
 
-Os parâmetros de cada algoritmo são definidos por cena (\autoref{qua:paramSeg}). Indian Pines usa regiões menores, porque tem apenas 145 $\times$ 145 pixels e classes agrícolas em faixas estreitas (\autoref{fig:indian_pines}). O número de superpixels pedido ao SEEDS é um alvo, não uma garantia: em Indian Pines, 350 superpixels pedidos resultam em 81 regiões; em University of Pavia, 150 resultam em 45.
+\begin{figure}[H]
+    \centering
+    \captionsetup{justification=centering}
+    \caption{Composição RGB de Indian Pines e as regiões de cada segmentador, com os parâmetros padrão}
+    \includegraphics[width=\textwidth]{assets/resultados/segmentacoes_ip.pdf}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor. Contornos das regiões em branco}
+    \label{fig:segmentacoesIP}
+\end{figure}
 
 \begin{quadro}[H]
     \centering
@@ -103,9 +107,9 @@ Os parâmetros de cada algoritmo são definidos por cena (\autoref{qua:paramSeg}
 \subsection{Modelo e Fusão}
 \label{subsec:desModelo}
 
-A CNN 1D segue o notebook original e está detalhada no \autoref{qua:camadas} para Indian Pines. As quatro convoluções não usam preenchimento (\textit{padding}), e cada uma encurta a sequência em $k - 1$ posições, consumindo 14 posições no total; por isso a rede exige pelo menos 15 componentes espectrais. Em University of Pavia e Salinas Valley, com 15 componentes, a última convolução produz uma única posição, e o achatamento resulta em 64 características.
+A CNN 1D segue o notebook original (\autoref{tab:camadas}). As quatro convoluções não usam preenchimento e consomem 14 posições, de modo que a rede exige pelo menos 15 componentes. A fusão é tardia: o identificador do superpixel só é concatenado ao vetor de características depois do achatamento, como um número a mais, e só a cabeça densa enxerga as duas informações juntas. A concatenação foi separada da cabeça densa em um passo próprio, o que permite à fusão concorrente proteger apenas esse passo com uma trava. Também foi implementada, para análise, uma tabela de vetores aprendidos por região (\textit{embedding}); a configuração original, com o identificador numérico, é a referência das comparações.
 
-\begin{quadro}[H]
+\begin{table}[H]
     \centering
     \caption{Camadas da CNN 1D com fusão, em Indian Pines ($K_b = 30$)}
     \begin{tabular}{|p{0.36\textwidth}|p{0.30\textwidth}|p{0.18\textwidth}|}
@@ -137,42 +141,50 @@ A CNN 1D segue o notebook original e está detalhada no \autoref{qua:camadas} pa
         \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborado pelo autor}
-    \label{qua:camadas}
-\end{quadro}
-
-A fusão é tardia: as convoluções nunca veem o identificador do superpixel, que só é concatenado ao vetor de características depois do achatamento, como um número a mais. A cabeça densa é a única parte da rede que enxerga as duas informações juntas. Na implementação, a concatenação foi separada da cabeça densa em um passo próprio, o que permite à fusão concorrente da \autoref{subsec:fusaoConcorrente} proteger apenas esse passo com uma trava. Como alternativa à concatenação do identificador numérico, também foi implementada uma tabela de vetores aprendidos por região (\textit{embedding}), usada apenas para entender como o identificador é aproveitado pela rede; a configuração herdada, com o identificador numérico, é a referência de todas as comparações.
+    \caption*{Fonte: Elaborada pelo autor}
+    \label{tab:camadas}
+\end{table}
 
 \subsection{Treino, Parada Antecipada e Divisão dos Dados}
 \label{subsec:desTreino}
 
-O treino usa a perda de entropia cruzada e o otimizador Adam. A parada antecipada segue uma política explícita: o treino é interrompido após 10 épocas sem que a acurácia de validação melhore em pelo menos 0,001, e os pesos da melhor época são restaurados. Nos experimentos de segmentadores e de hiperparâmetros (05, 06, 08 e 10; \autoref{qua:experimentos}), há ainda uma meta: o treino é interrompido quando a acurácia de validação atinge 0,95, com os pesos da melhor época igualmente restaurados, e o teto é de 200 épocas (no experimento 08, orçamentos de 10, 40 e 200 épocas por \textit{trial}). Nos experimentos de partição (11 e 13) e na fusão concorrente (14), vale apenas a paciência, com teto de 25 e de 60 épocas, respectivamente; o teto de 60 épocas é o do notebook original. O original, porém, parava pela perda de validação, com paciência de 5 épocas; a troca para a acurácia de validação foi feita para que a mesma métrica governe a parada e a seleção de hiperparâmetros. Em todos os casos, a escolha de modelos e de hiperparâmetros usa exclusivamente o conjunto de validação, e as métricas de teste são apenas relatadas.
+O treino usa a entropia cruzada e o Adam. A parada antecipada interrompe o treino após 10 épocas sem que a acurácia de validação melhore 0,001 e restaura os pesos da melhor época (\autoref{fig:curvasTreino}, no \autoref{ap:complementares}). Nos experimentos de segmentadores e de hiperparâmetros (05, 06, 08 e 10), há ainda uma meta de 0,95 de validação e teto de 200 épocas (no experimento 08, orçamentos de 10, 40 e 200 épocas por \textit{trial}); nos de partição (11 e 13) e na fusão concorrente (14), vale só a paciência, com teto de 25 e de 60 épocas. O original parava pela perda de validação, com paciência de 5 épocas; a troca fez a mesma métrica governar a parada e a seleção de hiperparâmetros, que usa exclusivamente a validação.
 
-A divisão dos dados reproduz a do original: um sorteio estratificado por classe separa 85\% das amostras para treino e divide os 15\% restantes igualmente entre validação e teste. Opcionalmente, apenas uma fração do treino é usada, com amostragem estratificada; validação e teste permanecem intactos, para que as métricas continuem comparáveis entre frações. Os experimentos de segmentadores e de hiperparâmetros (05, 06, 08 e 10) usam 10\% do treino, tanto na busca quanto no retreino do vencedor; os demais usam o treino completo.
+A divisão reproduz a do original: um sorteio estratificado por classe separa 85\% das amostras para treino e divide o restante igualmente entre validação e teste. Opcionalmente, apenas uma fração estratificada do treino é usada, com validação e teste intactos; os experimentos 05, 06, 08 e 10 usam 10\% do treino.
 
 \section{Paralelismo}
 \label{sec:desParalelismo}
 
-Três estratégias de paralelismo foram implementadas, em níveis diferentes do fluxo. A primeira executa concorrentemente os dois ramos do pré-processamento; a segunda divide a cena em partes processadas ao mesmo tempo; a terceira sobrepõe a segmentação à extração de características da rede. O paralelismo muda quando cada passo é executado, e não o que ele calcula, e os experimentos de partição e de fusão concorrente conferem isso: na partição da cena, a OA das execuções em processos foi igual à da execução sequencial das mesmas partições em todos os valores de $N$ medidos; na fusão concorrente, as 723 execuções do experimento 14 previram as mesmas classes que a inferência em um único lote (\autoref{subsec:resFusao}). A exceção é o treino independente das partições em threads: as partições compartilham o gerador de números aleatórios do PyTorch, consumido em ordem imprevisível na inicialização dos pesos e nas máscaras de \textit{dropout}, e execuções idênticas variaram até 3,51 pontos de OA (\autoref{sec:resOrganizacao}). Com processos, cada partição tem o seu gerador, e o resultado se repete.
+Três estratégias foram implementadas, em níveis diferentes do fluxo: os dois ramos do pré-processamento executados concorrentemente, a cena dividida em partes processadas ao mesmo tempo e a segmentação sobreposta à extração de características. O paralelismo muda quando cada passo é executado, e não o que ele calcula: na partição em processos, a OA foi igual à da execução sequencial em todos os valores de $N$ medidos, e na fusão concorrente as 723 execuções previram as mesmas classes que o lote. A exceção é o treino de partições em threads, que compartilham o gerador aleatório do PyTorch (\autoref{sec:resOrganizacao}).
 
 \subsection{Entre os Ramos do Pré-processamento}
 
-A preparação dos dados pode executar os ramos espectral e espacial de três formas: em sequência, que é a linha de base; em duas threads, que compartilham os \textit{arrays} de entrada sem cópia; ou com o ramo espacial em um processo filho, que exige serializar a tabela de pixels e os resultados. A versão com threads funciona apesar do GIL porque a maior parte do processamento dos dois ramos ocorre em código nativo que libera o GIL: a álgebra linear do PCA e a iteração do segmentador no OpenCV. Pelo segundo corolário da \autoref{sec:concorrencia}, o ganho máximo é dado pelos tempos dos dois ramos, e o ramo espacial, que contém a segmentação, é o mais longo, com 78\% a 93\% do tempo sequencial do pré-processamento (\autoref{qua:ramos}).
+Os ramos podem ser executados em sequência, em duas threads, que compartilham os \textit{arrays} sem cópia, ou com o ramo espacial em um processo filho, que exige serializar a tabela de pixels e os resultados. As threads funcionam apesar do GIL porque a álgebra linear do PCA e a iteração do segmentador no OpenCV são código nativo que o libera. O ramo espacial, que contém a segmentação, é o mais longo, com 78\% a 93\% do tempo sequencial (\autoref{tab:ramos}).
 
 \subsection{Por Partição da Cena}
 
-Para paralelizar a etapa mais custosa do fluxo, o treino, a cena é dividida em $N$ partições com número semelhante de pixels rotulados, de modo que o teto teórico do \textit{speedup} se aproxime de $N$. A segmentação é executada uma única vez sobre a cena inteira, antes da partição: segmentar cada parte separadamente produziria superpixels diferentes nas fronteiras, e os identificadores deixariam de ser comparáveis entre partições. As partições são faixas horizontais contíguas, e dois modos de uso foram implementados: o \textit{replicado}, em que um único modelo é treinado com a cena inteira e apenas a inferência é paralelizada, e o \textit{independente}, em que cada partição treina seu próprio modelo com as amostras dela. Nos experimentos de partição, o treino usa lote 64, em vez dos 32 da receita herdada, e o \textit{speedup} é medido contra a execução sequencial das mesmas partições, no mesmo dispositivo. Como o lote é o mesmo nos dois lados da comparação, o \textit{speedup} compara executores sob a mesma carga, mas as acurácias desses experimentos não são comparáveis às da linha de base.
+Para paralelizar o treino, a cena é dividida em $N$ faixas horizontais com número semelhante de pixels rotulados (\autoref{fig:particaoFaixas}). A segmentação é executada uma única vez sobre a cena inteira, antes da partição, para que os identificadores sejam comparáveis entre partições. No modo \textit{replicado}, um modelo treinado com a cena inteira infere as partições; no \textit{independente}, cada partição treina o seu modelo. O treino usa lote 64, e o \textit{speedup} é medido contra a execução sequencial das mesmas partições, no mesmo dispositivo.
 
-As partições podem ser executadas em sequência, em threads ou em processos. Os processos são criados pelo método \textit{spawn}, que inicia um novo interpretador, sem herdar o estado do processo pai, porque o PyTorch interrompe com erro a cópia de processo (\textit{fork}) feita depois que o cálculo de gradientes foi executado em threads \cite{PyTorchMultiprocessing}. O custo do \textit{spawn} é alto, porque cada processo reimporta o PyTorch: com 16 partições, a partida chega a 78\% do tempo de uma execução com o pool criado dentro da medição (\autoref{qua:poolQuente}). Por isso, foi implementado um pool reutilizável: os processos são criados e aquecidos uma única vez, fora da medição, e atendem às execuções seguintes. Cada processo é configurado para usar uma única thread do PyTorch, pois, do contrário, $N$ processos com 16 threads cada disputariam os mesmos núcleos. Antes de criar um pool, a memória necessária é estimada a partir da memória ocupada por processo, cerca de 481 MB, e um pool que não caberia na RAM é recusado em vez de levar o sistema a usar a área de troca.
+\begin{figure}[H]
+    \centering
+    \captionsetup{justification=centering}
+    \caption{Pixels rotulados de Indian Pines divididos em 4 e em 16 faixas}
+    \includegraphics[width=0.75\textwidth]{assets/resultados/particao_faixas.pdf}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor. Cada cor é uma partição}
+    \label{fig:particaoFaixas}
+\end{figure}
+
+As partições podem ser executadas em sequência, em threads ou em processos. Os processos são criados pelo método \textit{spawn}, que inicia um novo interpretador, porque o PyTorch interrompe com erro a cópia de processo (\textit{fork}) feita depois de o cálculo de gradientes rodar em threads \cite{PyTorchMultiprocessing}. Como cada processo reimporta o PyTorch, a partida é cara, e foi implementado um pool reutilizável, criado e aquecido fora da medição. Cada processo usa uma thread do PyTorch, e um pool que não caberia na RAM, estimado em cerca de 481 MB por processo, é recusado antes de executar.
 
 \subsection{Fusão Concorrente}
 \label{subsec:fusaoConcorrente}
 
-O projeto previa que a segmentação e a CNN 1D fossem executadas ao mesmo tempo, com sincronização apenas no ponto de fusão (\autoref{fig:paralelizacao}). A estratégia de paralelismo entre os ramos, porém, executou concorrentemente à segmentação apenas o PCA espectral; a CNN só era executada depois. O orientador deste trabalho detalhou, então, um esquema que cumpre a proposta original, representado na \autoref{fig:fusaoConcorrente}:
+O projeto previa a segmentação e a CNN 1D executadas ao mesmo tempo, com sincronização só na fusão (\autoref{fig:paralelizacao}), mas o paralelismo entre os ramos sobrepôs à segmentação apenas o PCA espectral. O esquema da \autoref{fig:fusaoConcorrente} cumpre a proposta original:
 
 \begin{itemize}
-    \item uma thread T0 executa o ramo espacial --- PCA de 3 componentes, composição RGB e SEEDS --- e publica o mapa de segmentação (MS) em uma estrutura compartilhada;
-    \item um pool de threads T1 a TN recebe as posições do mapa: cada tarefa passa o espectro dos pixels daquelas posições apenas pelas convoluções da rede, lê o identificador do segmento de cada posição no mapa e faz a concatenação, e a cabeça densa produz o vetor de classes;
+    \item uma thread T0 executa o ramo espacial (PCA de 3 componentes, composição RGB e SEEDS) e publica o mapa de segmentação (MS) em uma estrutura compartilhada;
+    \item um pool de threads T1 a TN recebe as posições do mapa: cada tarefa passa o espectro dos pixels pelas convoluções, lê o identificador do segmento de cada posição e faz a concatenação, e a cabeça densa produz o vetor de classes;
     \item a segmentação e a concatenação são protegidas por um mutex.
 \end{itemize}
 
@@ -211,33 +223,45 @@ O projeto previa que a segmentação e a CNN 1D fossem executadas ao mesmo tempo
         \draw[seta] (dens) -- (cls);
     \end{tikzpicture}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor, a partir do esquema proposto pelo orientador}
+    \caption*{Fonte: Elaborada pelo autor}
     \label{fig:fusaoConcorrente}
 \end{figure}
 
-As convoluções não dependem do mapa de segmentação, e é isso que permite às threads de trabalho avançar enquanto T0 ainda segmenta: só a concatenação precisa esperar. Duas decisões de implementação foram necessárias para transformar o esquema em um programa correto.
+As convoluções não dependem do mapa, e por isso as threads de trabalho avançam enquanto T0 segmenta; só a concatenação espera. Um mutex não garante que T0 publique o mapa antes da primeira leitura, e por isso a trava foi implementada como a de uma variável de condição (\autoref{sec:concorrencia}), cujo predicado indica que o mapa já foi publicado; para tornar visível uma leitura indevida, o mapa começa preenchido com um valor que nenhum segmentador produz. Foram implementadas duas extensões da seção crítica: \textbf{como no esquema}, em que T0 detém a trava durante a segmentação e cada tarefa durante a concatenação, e \textbf{mínima}, em que a trava serve só para publicar o mapa e para ler os identificadores, já que um mapa publicado é somente lido.
 
-A primeira diz respeito à ordem. Um mutex garante que T0 e as threads de trabalho não acessem o mapa ao mesmo tempo, mas não garante que T0 o acesse primeiro: se uma thread de trabalho adquirir a trava antes de T0, lerá um mapa ainda vazio. Por isso, a trava do esquema foi implementada como a de uma variável de condição (\autoref{sec:concorrencia}), cujo predicado é um indicador de que o mapa já foi publicado. Uma thread que chega antes da publicação aguarda, liberando a trava durante a espera, e T0, ao publicar o mapa, notifica todas as threads bloqueadas. Para tornar visível qualquer leitura indevida, o mapa começa preenchido com um valor que nenhum segmentador produz.
-
-A segunda diz respeito à extensão da seção crítica. Foram implementadas duas versões, comparáveis porque todo o resto é idêntico:
-
-\begin{itemize}
-    \item \textbf{como no esquema}: T0 detém a trava durante toda a segmentação, e cada tarefa a detém durante a concatenação;
-    \item \textbf{mínima}: T0 adquire a trava apenas para publicar o mapa pronto, e cada tarefa, apenas para ler os identificadores. Depois de publicado, o mapa passa a ser somente lido, e leituras concorrentes de um dado imutável não produzem condição de corrida; manter a concatenação dentro da trava serializa as threads sem proteger nada.
-\end{itemize}
-
-A granularidade das tarefas também é um parâmetro, medido com blocos de 1, 64 e 1.024 posições. Com um bloco de uma posição, cada tarefa recebe um único pixel, exatamente como no esquema; com blocos maiores, cada tarefa recebe um conjunto contíguo de posições, o que dilui o custo fixo de despachar uma tarefa e de chamar a rede. Esse custo pesa: em Indian Pines, chamar a rede pixel a pixel, mesmo sem threads, já torna a inferência 3,12 vezes mais lenta que a de todos os pixels em um único lote, e com uma posição por tarefa o esquema fica de 7 a 35 vezes mais lento (\autoref{subsec:resFusao}).
-
-Na implementação do esquema, cada tarefa faz as convoluções e a fusão em sequência; é a forma chamada de \textit{como no esquema} no \autoref{qua:fusao}, na \autoref{fig:fusaoSpeedup} e na \autoref{fig:fusaoLinhaTempo}. Isso tem uma consequência estrutural: uma thread que termina as convoluções antes de T0 publicar o mapa fica bloqueada à espera dele e, enquanto isso, não atende nenhuma outra tarefa da fila. Enquanto T0 segmenta, portanto, no máximo $N$ tarefas avançam, e a sobreposição pretendida fica limitada a $N$ vezes o tamanho do bloco. Para medir o teto do esquema, foi implementada também uma \textit{variante desacoplada}, em que convolução e fusão são tarefas separadas e todas as convoluções entram na fila antes de qualquer fusão. Como a fila do pool é atendida em ordem de chegada, quando uma fusão é retirada da fila, a convolução correspondente já foi iniciada, e nenhuma thread fica ociosa enquanto ainda há convolução a fazer. As duas extensões da seção crítica foram medidas nas duas formas.
-
-Três cuidados completam a implementação. O modo de cálculo de gradientes do PyTorch é definido por thread; por isso, a inferência sem gradientes precisa ser ativada dentro de cada tarefa, e não apenas na thread principal. Pelo mesmo motivo, o número de threads internas do PyTorch, que nas medições de paralelismo é restrito a uma, precisa ser fixado em cada thread do pool: a configuração feita na thread principal não se propaga, e as threads do pool usariam as 32 threads padrão do OpenMP, o que fazia a convolução de um bloco de 64 pixels levar cerca de 100 ms em vez de 0,2 ms. Por fim, as threads do pool são criadas sob demanda e inicializam estado interno do PyTorch na primeira operação; o pool é, então, aquecido antes das medições com uma barreira que obriga a criação de todas as threads, separando o custo de partida do custo do paralelismo, como no pool de processos.
-
-O esquema se aplica à propagação direta (\textit{forward pass}) de um modelo já treinado, isto é, à inferência. No treino, a perda de cada lote depende do identificador do segmento desde o primeiro lote, e o gradiente atravessa as convoluções; além disso, a segmentação é executada uma única vez. Não há, portanto, trabalho de treino que possa ser sobreposto à segmentação.
+A granularidade foi medida com blocos de 1, 64 e 1.024 posições; com uma posição, cada tarefa recebe um pixel, como no esquema. Na forma como no esquema, uma thread que termina as convoluções antes da publicação fica bloqueada e não atende outras tarefas, de modo que, enquanto T0 segmenta, no máximo $N$ blocos avançam. Para medir o teto do esquema, foi implementada uma \textit{variante desacoplada}, em que convolução e fusão são tarefas separadas e todas as convoluções entram na fila antes das fusões. A inferência sem gradientes e o número de threads do PyTorch são definidos por thread e precisam ser fixados em cada thread do pool: sem isso, cada uma usaria as 32 threads padrão do OpenMP, e a convolução de um bloco de 64 pixels levaria cerca de 100 ms em vez de 0,2 ms. O pool é aquecido antes das medições com uma barreira que obriga a criação de todas as threads. O esquema se aplica à inferência: no treino, a perda depende do identificador desde o primeiro lote, e a segmentação é executada uma única vez.
 
 \section{Automação de Hiperparâmetros}
 \label{sec:desHPO}
 
-O espaço de busca combina os hiperparâmetros de treino, o número de componentes do PCA, o segmentador e três receitas de parâmetros de cada segmentador (\autoref{qua:espaco}). Os valores de cada hiperparâmetro incluem o da receita herdada, de modo que a configuração original é um dos candidatos possíveis. Em Indian Pines o espaço tem $4 \times 3 \times 3^4 \times 3 = 2.916$ combinações. Com o tempo médio de treino de um \textit{trial} do experimento 08 com teto de 200 épocas (3,2 s, com 10\% do treino), percorrê-las levaria cerca de 2,6 h de treino por semente, 146 vezes o custo de uma busca de 20 \textit{trials}, e a comparação das estratégias repete cada busca com 3 sementes. Por isso, a busca em grade prevista no projeto foi substituída pela busca aleatória, que, assim como a grade, não usa os resultados anteriores para escolher o próximo candidato e é a referência usual para avaliar estratégias adaptativas \cite{Bergstra2012Random}.
+O projeto selecionou dois métodos de busca, executados pelo Ray Tune: a busca em grade, que avalia todas as combinações do espaço, e a Otimização Bayesiana com processo gaussiano, que usa os \textit{trials} já observados para escolher o próximo (\autoref{subsec:algoritmos}). Na implementação, a busca aleatória ocupou o lugar da grade, o TPE ocupou o do processo gaussiano, o Optuna, chamado diretamente, substituiu o Ray Tune, e o algoritmo genético foi acrescentado (\autoref{qua:metodosHPO}).
+
+\begin{quadro}[!htbp]
+    \centering
+    \small
+    \caption{Métodos de busca previstos no projeto e implementados}
+    \begin{tabular}{|>{\RaggedRight\arraybackslash}p{0.25\textwidth}|>{\RaggedRight\arraybackslash}p{0.29\textwidth}|>{\RaggedRight\arraybackslash}p{0.34\textwidth}|}
+        \hline
+        \rowcolor[HTML]{C0C0C0}
+        \textbf{Previsto no projeto} & \textbf{Implementado} & \textbf{Papel na busca} \\
+        \hline
+        Busca em grade, com todas as combinações do espaço & Busca aleatória sobre o mesmo espaço, sem repetir candidatos & Não usa os \textit{trials} anteriores; é a referência das estratégias adaptativas \\
+        \hline
+        Otimização Bayesiana com processo gaussiano & Otimização Bayesiana com TPE, pelo Optuna & Escolhe o próximo \textit{trial} por um modelo probabilístico dos anteriores \\
+        \hline
+        Ray Tune & Optuna chamado diretamente, com os \textit{trials} em sequência & Executa a busca \\
+        \hline
+        Não previsto & Algoritmo genético & Aprimora uma população de candidatos por seleção, cruzamento e mutação \\
+        \hline
+    \end{tabular}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborado pelo autor}
+    \label{qua:metodosHPO}
+\end{quadro}
+
+O espaço de busca combina os hiperparâmetros de treino, o número de componentes do PCA, o segmentador e três configurações de parâmetros de cada segmentador (\autoref{qua:espaco}), e inclui os valores da configuração original. Em Indian Pines, ele tem 2.916 combinações; com os 3,2 s médios de treino de um \textit{trial} com teto de 200 épocas no experimento 08, percorrê-las levaria cerca de 2,6 h por semente, 146 vezes o custo de uma busca de 20 \textit{trials}. Por isso, a busca em grade foi substituída pela busca aleatória, que sorteia combinações do mesmo espaço discreto, sem repetir candidatos, também não usa os resultados anteriores e é a referência usual para avaliar estratégias adaptativas \cite{Bergstra2012Random}.
+
+A Otimização Bayesiana foi mantida, com o TPE no lugar do processo gaussiano. O processo gaussiano modela a função objetivo e escolhe o próximo \textit{trial} por uma função de aquisição \cite{WU201926}; com os núcleos usuais, ele trata os hiperparâmetros como variáveis contínuas e supõe que combinações próximas tenham resultados próximos, o que não vale para o segmentador nem para a configuração do segmentador, que são categóricos. O TPE estima densidades separadas para cada hiperparâmetro e aceita variáveis categóricas diretamente \cite{Bergstra2011TPE}. O Ray Tune distribui \textit{trials} entre processos e máquinas e pode delegar a escolha dos candidatos a bibliotecas como o Optuna; como os \textit{trials} foram executados em sequência, em uma única máquina, o Optuna foi chamado diretamente \cite{Akiba2019Optuna}. O algoritmo genético, que não estava no projeto, foi acrescentado para comparar duas formas de aproveitar os \textit{trials} anteriores: o modelo probabilístico do TPE e a seleção, o cruzamento e a mutação de uma população \cite{Holland1975}. Dos hiperparâmetros listados no projeto, o número de épocas passou a ser o orçamento por \textit{trial}, estudado à parte no experimento 08, e o número de filtros, o tamanho dos \textit{kernels} e o otimizador ficaram como no original, que é a referência (\autoref{ap:desvios}).
 
 \begin{quadro}[!htbp]
     \centering
@@ -245,7 +269,7 @@ O espaço de busca combina os hiperparâmetros de treino, o número de component
     \begin{tabular}{|p{0.28\textwidth}|>{\RaggedRight\arraybackslash}p{0.40\textwidth}|>{\RaggedRight\arraybackslash}p{0.20\textwidth}|}
         \hline
         \rowcolor[HTML]{C0C0C0}
-        \textbf{Hiperparâmetro} & \textbf{Valores} & \textbf{Herdado} \\
+        \textbf{Hiperparâmetro} & \textbf{Valores} & \textbf{Original} \\
         \hline
         Taxa de aprendizado & 0,0003; 0,001; 0,003 & 0,001 \\
         \hline
@@ -259,7 +283,7 @@ O espaço de busca combina os hiperparâmetros de treino, o número de component
         \hline
         Segmentador & SEEDS, SLIC, LSC, Watershed & SEEDS \\
         \hline
-        Receita do segmentador & a padrão e duas variações em torno dela: no SEEDS, 0,7$\times$ e 1,35$\times$ o número de superpixels, com 120 e 250 iterações e \textit{prior} 1 e 3; no SLIC, o tamanho da região $\pm$3 px; no LSC, o tamanho da região $\pm$3 px, com razão 0,04 e 0,12; no Watershed, 0,7$\times$ e 1,35$\times$ o número de marcadores & a padrão \\
+        Configuração do segmentador & a padrão e duas variações em torno dela: no SEEDS, 0,7$\times$ e 1,35$\times$ o número de superpixels, com 120 e 250 iterações e \textit{prior} 1 e 3; no SLIC, o tamanho da região $\pm$3 px; no LSC, o tamanho da região $\pm$3 px, com razão 0,04 e 0,12; no Watershed, 0,7$\times$ e 1,35$\times$ o número de marcadores & a padrão \\
         \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
@@ -267,25 +291,17 @@ O espaço de busca combina os hiperparâmetros de treino, o número de component
     \label{qua:espaco}
 \end{quadro}
 
-Todo candidato é representado da mesma forma: uma lista de índices, um por hiperparâmetro. Essa representação é comum às três estratégias implementadas, o que garante que elas difiram apenas na forma de escolher o próximo candidato:
-
-\begin{itemize}
-    \item \textbf{busca aleatória}: sorteia os índices de forma uniforme, sem repetir candidatos;
-    \item \textbf{TPE}: usa o amostrador da biblioteca Optuna, tratando segmentador e receita como hiperparâmetros categóricos e os demais como inteiros ordenados \cite{Bergstra2011TPE, Akiba2019Optuna};
-    \item \textbf{algoritmo genético}: população de 6 candidatos no experimento de comparação das estratégias, seleção por torneio entre 3, cruzamento uniforme, mutação de cada gene com probabilidade de 0,25 e elitismo dos 2 melhores, que passam à geração seguinte sem novo treino \cite{Holland1975}.
-\end{itemize}
-
-As três estratégias começam com a mesma cobertura: os quatro primeiros \textit{trials} são obrigados a usar segmentadores distintos, para que nenhum fique de fora da busca por acaso. Cada \textit{trial} é avaliado pela maior acurácia de validação de seu histórico. Na busca de baixa fidelidade, a paciência da parada antecipada passa a ser um terço do orçamento de épocas quando esse valor é menor que 10, para que ainda possa ser acionada: com 10 épocas por \textit{trial}, ela cai para 3; com 40 e com 200 épocas, permanece 10. Ao final da busca, apenas o vencedor é retreinado, com teto de 200 épocas e 5 sementes (experimentos 06 e 10), e a decisão --- o que foi buscado, o que venceu e o plano final --- é gravada em arquivos com \textit{hash}, de modo que seja possível justificar posteriormente a promoção de cada receita.
+Todo candidato é uma lista de índices, um por hiperparâmetro, representação comum às três estratégias: a \textbf{busca aleatória} sorteia os índices sem repetir candidatos; o \textbf{TPE}, pelo Optuna, trata segmentador e configuração do segmentador como categóricos e os demais como inteiros ordenados \cite{Bergstra2011TPE, Akiba2019Optuna}; e o \textbf{algoritmo genético} usa população de 6 no experimento de comparação, torneio entre 3, cruzamento uniforme, mutação de cada gene com probabilidade de 0,25 e elitismo dos 2 melhores \cite{Holland1975}. As três começam com os quatro primeiros \textit{trials} em segmentadores distintos, e cada \textit{trial} vale pela maior acurácia de validação do seu histórico. Com poucas épocas por \textit{trial}, a paciência cai para um terço do orçamento quando esse valor é menor que 10 (3 com 10 épocas). Ao final, só o vencedor é retreinado, com teto de 200 épocas e 5 sementes (experimentos 06 e 10).
 
 \section{Segmentadores sob Otimização Conjunta}
 \label{sec:desSegmentadores}
 
-O plano de verificação previa testar os segmentadores mantendo a CNN fixa. Esse desenho foi implementado e descartado (\autoref{cap:resultados}): a configuração da CNN que serve a um segmentador não serve a outro, e a comparação com a CNN fixa mede quanto uma receita arbitrária combina com cada algoritmo, e não a qualidade do algoritmo. No uso real, a CNN e o segmentador são ajustados juntos, e a comparação foi refeita dessa forma: para cada segmentador, uma busca TPE de 16 \textit{trials}, restrita a ele, cujo vencedor, escolhido pela acurácia de validação, é retreinado com 5 sementes. O SEEDS passa pelo mesmo tratamento e é a referência.
+O plano previa testar os segmentadores com a CNN fixa. Esse desenho foi implementado e descartado (\autoref{cap:resultados}), porque a configuração original da CNN, que serve ao SEEDS, não serve a todos os segmentadores. A comparação foi refeita com a CNN e o segmentador ajustados juntos: para cada segmentador, uma busca TPE de 16 \textit{trials} restrita a ele, cujo vencedor é retreinado com 5 sementes, com o SEEDS submetido ao mesmo tratamento.
 
 \section{Organização dos Experimentos}
 \label{sec:desExperimentos}
 
-A campanha planejada no \autoref{tab:descricaoExperimentos} foi desdobrada em experimentos menores, cada um com um objetivo específico, conforme o \autoref{qua:experimentos}. A numeração segue a ordem em que foram criados; os números ausentes correspondem a experimentos absorvidos por outros, descartados quando o escopo foi restrito à CNN 1D, ou não abordados nesta monografia. Cada experimento é executável a partir de um lançador de linha de comando, grava seus resultados em arquivos tabulares versionados e confere, quando aplicável, a repetibilidade das próprias medições.
+A campanha planejada (\autoref{tab:descricaoExperimentos}) foi desdobrada nos experimentos do \autoref{qua:experimentos}, numerados na ordem em que foram criados; os números ausentes correspondem a experimentos absorvidos por outros ou fora do escopo desta monografia. Cada experimento é executável por um lançador de linha de comando e grava os seus resultados em arquivos tabulares versionados.
 
 \begin{quadro}[H]
     \centering
@@ -301,7 +317,7 @@ A campanha planejada no \autoref{tab:descricaoExperimentos} foi desdobrada em ex
         \hline
         08 & Comparação entre busca aleatória, TPE e algoritmo genético; efeito do orçamento de épocas; importância de cada hiperparâmetro & Hiperparâmetros & Exp. 3 e 4 \\
         \hline
-        10 & Receita otimizada em comparação com a herdada & Hiperparâmetros & Exp. 1, 3 e 4 \\
+        10 & Configuração otimizada em comparação com a original & Hiperparâmetros & Exp. 1, 3 e 4 \\
         \hline
         11 & Escalabilidade da partição da cena, nos modos replicado e independente & Paralelismo & Exp. 5 \\
         \hline
@@ -318,62 +334,4 @@ A campanha planejada no \autoref{tab:descricaoExperimentos} foi desdobrada em ex
 \section{Desvios em Relação ao Projeto}
 \label{sec:desvios}
 
-A implementação manteve os requisitos do projeto, mas algumas escolhas mudaram ao longo do desenvolvimento. O \autoref{qua:desvios} reúne as que dizem respeito à implementação, e o \autoref{qua:desviosExperimentos}, as que dizem respeito à campanha experimental, cada uma com o seu motivo.
-
-\begin{quadro}[H]
-    \centering
-    \caption{Desvios em relação ao projeto: implementação}
-    \begin{tabular}{|>{\RaggedRight\arraybackslash}p{0.27\textwidth}|>{\RaggedRight\arraybackslash}p{0.27\textwidth}|>{\RaggedRight\arraybackslash}p{0.36\textwidth}|}
-        \hline
-        \rowcolor[HTML]{C0C0C0}
-        \textbf{Previsto} & \textbf{Realizado} & \textbf{Motivo} \\
-        \hline
-        TensorFlow/Keras ou PyTorch & PyTorch & Arquitetura, PCA, divisão dos dados e hiperparâmetros de treino do original preservados em PyTorch, com execução determinística; a regra de parada antecipada foi trocada (última linha deste quadro) \\
-        \hline
-        CNN com 16, 32, 64 e 128 filtros, \textit{max-pooling} e \textit{softmax} & 16, 32, 64 e 64 filtros, sem \textit{pooling}, saída em \textit{logits} & A arquitetura do notebook original, que é a referência; o \textit{softmax} é aplicado pela função de perda \\
-        \hline
-        Rótulo do superpixel codificado em \textit{one-hot} & Identificador numérico concatenado, como no original & A configuração herdada é a referência; o \textit{embedding} foi implementado para análise \\
-        \hline
-        Critério do RF03: classificação com fusão superior à puramente espectral & Fusão verificada pela concatenação e pela dimensão da entrada da cabeça densa (1.025 em Indian Pines); a vantagem sobre a rede puramente espectral é a reportada por \citeonline{Souza2023} & A fusão faz parte da configuração de referência e não é variável de estudo; nenhuma configuração sem fusão é treinada \\
-        \hline
-        SEEDS, LSC e Watershed & SEEDS, SLIC, LSC e Watershed & O SLIC é uma referência frequente nas avaliações de algoritmos de superpixels \cite{Stutz2018} e uma comparação natural \\
-        \hline
-        Busca em grade e Otimização Bayesiana com Ray Tune & Busca aleatória, TPE (Optuna) e algoritmo genético & As 2.916 combinações custariam 146 vezes uma busca de 20 \textit{trials} (\autoref{sec:desHPO}); o genético acrescenta uma estratégia populacional \\
-        \hline
-        Épocas, filtros, tamanho dos \textit{kernels} e otimizador entre os hiperparâmetros da CNN & Taxa de aprendizado, \textit{dropout}, \textit{weight decay} e lote; arquitetura e otimizador Adam fixos & A arquitetura e o otimizador são os do original, que é a referência; o orçamento de épocas foi estudado à parte, no experimento 08 \\
-        \hline
-        Google Colab ou HPC & GPU local (RTX 5070 Laptop) & Suficiente para as três cenas, com controle total do ambiente; os 15,8 GB de RAM impediram o pool de 32 processos (\autoref{sec:resParalelismo}) \\
-        \hline
-        Parada do notebook original: perda de validação, paciência 5 & Acurácia de validação, paciência 10, melhores pesos restaurados; meta de 0,95 nos experimentos de segmentadores e de hiperparâmetros & A mesma métrica governa a parada e a seleção \\
-        \hline
-    \end{tabular}
-    \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborado pelo autor}
-    \label{qua:desvios}
-\end{quadro}
-
-\begin{quadro}[H]
-    \centering
-    \caption{Desvios em relação ao projeto: campanha experimental}
-    \begin{tabular}{|>{\RaggedRight\arraybackslash}p{0.27\textwidth}|>{\RaggedRight\arraybackslash}p{0.27\textwidth}|>{\RaggedRight\arraybackslash}p{0.36\textwidth}|}
-        \hline
-        \rowcolor[HTML]{C0C0C0}
-        \textbf{Previsto} & \textbf{Realizado} & \textbf{Motivo} \\
-        \hline
-        Segmentadores com CNN fixa & Segmentadores sob otimização conjunta & O desenho com CNN fixa se mostrou inválido (\autoref{cap:resultados}) \\
-        \hline
-        85\% das amostras para treino & 10\% desse treino nos experimentos de segmentadores e de hiperparâmetros & Cada execução fica cerca de 5,7 vezes mais barata em Indian Pines (\autoref{qua:fracaoTreino}), o que viabilizou os 540 \textit{trials} do experimento 08; validação e teste permanecem inteiros \\
-        \hline
-        Todos os experimentos nas três cenas & CNN fixa (05) em Indian Pines e University of Pavia; segmentadores (06) e fusão concorrente (14) nas três; busca (08), ganho da busca de hiperparâmetros (10) e partição (11 e 13) em Indian Pines & Custo de tempo; Indian Pines é a cena de menor acurácia na linha de base (OA 0,9051; \autoref{qua:linhaBase}) \\
-        \hline
-        Testes de significância estatística & Diferença afirmável quando excede duas vezes o desvio combinado das duas condições entre sementes & Com 3 a 5 sementes por condição, um critério simples e explícito; por usar o desvio das execuções, e não o erro padrão da média, é mais exigente que o mesmo limiar aplicado ao erro padrão; o pareamento por semente não foi explorado \\
-        \hline
-        Segmentação em processo e CNN na GPU, em paralelo & Threads e processos em CPU, em três níveis & Em Indian Pines, o pré-processamento é 0,9\% de uma execução e a inferência, 0,4\% (\autoref{sec:resParalelismo}); o tempo concentra-se no treino, e a comparação entre executores exige o mesmo dispositivo \\
-        \hline
-        Paralelização sobre a melhor configuração identificada & Fusão concorrente sobre a configuração herdada; partição com lote 64 e 25 épocas & Interessa o tempo entre executores, com a mesma configuração dos dois lados \\
-        \hline
-    \end{tabular}
-    \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborado pelo autor}
-    \label{qua:desviosExperimentos}
-\end{quadro}
+A implementação manteve os requisitos do projeto, mas algumas escolhas mudaram: o PyTorch no lugar do TensorFlow/Keras, a arquitetura do notebook original no lugar da prevista, o SLIC como quarto segmentador, a busca aleatória, o TPE e o algoritmo genético no lugar da busca em grade com Ray Tune, a GPU local no lugar do Google Colab ou de HPC, a nova regra de parada antecipada, a comparação dos segmentadores sob otimização conjunta e 10\% do treino nos experimentos de segmentadores e de hiperparâmetros. O \autoref{qua:desvios} e o \autoref{qua:desviosExperimentos}, no \autoref{ap:desvios}, apresentam cada desvio e o seu motivo.
