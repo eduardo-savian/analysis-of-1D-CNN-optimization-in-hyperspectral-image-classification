@@ -52,3 +52,9 @@ __pycache__/
 
 # Metadados que o Windows grava em arquivos baixados
 *:Zone.Identifier
+
+# Material de referência e notas locais, fora do repositório
+tcc/TCC III - Marcos Fehlauer/
+tcc/TCC III - Sydney Souza/
+about.md
+Context.md
