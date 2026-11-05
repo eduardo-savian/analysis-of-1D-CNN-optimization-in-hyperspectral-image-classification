@@ -1,4 +1,4 @@
-"""Experimento 13: pool frio contra pool quente na partição da cena.
+"""Experimento 07: pool frio contra pool quente na partição da cena.
 
 Frio: o pool é criado e fechado dentro da medição, e cada execução paga a partida dos
 workers (com processos, um interpretador novo que reimporta o PyTorch). Quente: o pool
@@ -15,19 +15,19 @@ import numpy as np
 import pandas as pd
 import torch
 
-from hsi.config import ExperimentConfig
+from hsi.config import CONFIG, ExperimentConfig
 from hsi.experimentos.infra import caminho_resultado, carregar_feito, salvar
-from hsi.particao import new_pool, run_experiment_particionado, warm_up
+from hsi.paralelismo.particao import new_pool, run_experiment_particionado, warm_up
 
-PARTICOES = (2, 4, 8, 16, 32)
-REPETICOES = {"frio": 2, "quente": 3}
+C = CONFIG["experimentos"]["07"]
+PARTICOES_POOL = tuple(C["particoes"])
+REPETICOES_POOL = C["repeticoes"]
 # O sequencial vem primeiro porque é o denominador do speedup.
-ARRANJOS = (("independente", "sequencial"), ("independente", "process"),
+ARRANJOS_POOL = (("independente", "sequencial"), ("independente", "process"),
             ("replicado", "sequencial"), ("replicado", "thread"),
             ("independente", "thread"))
-# Memória proporcional (PSS) de um worker de processo, medida: 481 MB. Um pool que não
-# cabe com 25% de folga é recusado, para a medição não cronometrar a área de troca.
-MB_POR_PROCESSO = 481
+# Um pool que não cabe com 25% de folga é recusado (ver config.toml).
+MB_POR_PROCESSO = C["mb_por_processo"]
 
 
 def _memoria_livre_mb() -> float:
@@ -41,14 +41,14 @@ def _memoria_livre_mb() -> float:
 def _medir(cena, modo, executor, n, estado) -> list[dict]:
     if executor == "process" and 1.25 * n * MB_POR_PROCESSO > _memoria_livre_mb():
         raise MemoryError(f"{n} processos não cabem na memória livre")
-    config = ExperimentConfig(dataset=cena, epochs=25, batch_size=64, seed=42)
+    config = ExperimentConfig(dataset=cena, epochs=C["epochs"], batch_size=C["batch_size"], seed=42)
     pool, aquecimento = None, 0.0
     if estado == "quente":
         pool = new_pool(executor, n)
         aquecimento = warm_up(pool, n)
     linhas = []
     try:
-        for rep in range(REPETICOES[estado]):
+        for rep in range(REPETICOES_POOL[estado]):
             r = run_experiment_particionado(config, n, modo, "faixas", executor, pool=pool)
             linhas.append({"cena": cena, "modo": modo, "executor": executor, "n": n,
                            "estado": estado, "rep": rep, "bloco_paralelo": r["tempo_paralelo"],
@@ -60,18 +60,18 @@ def _medir(cena, modo, executor, n, estado) -> list[dict]:
     return linhas
 
 
-def experimento_13(*cenas: str) -> pd.DataFrame:
+def experimento_07(*cenas: str) -> pd.DataFrame:
     """Pool frio contra pool quente, por executor e número de partições."""
-    cenas = cenas or ("IP",)
+    cenas = cenas or tuple(C["cenas"])
     torch.set_num_threads(1)
-    destino = caminho_resultado("13_pool_quente.csv")
+    destino = caminho_resultado("07_pool_quente.csv")
     linhas, feitas = carregar_feito(destino, ("cena", "modo", "executor", "n", "estado", "rep"))
     for cena in cenas:
-        for modo, executor in ARRANJOS:
-            for n in PARTICOES:
+        for modo, executor in ARRANJOS_POOL:
+            for n in PARTICOES_POOL:
                 for estado in ("frio", "quente"):
                     if all((cena, modo, executor, n, estado, rep) in feitas
-                           for rep in range(REPETICOES[estado])):
+                           for rep in range(REPETICOES_POOL[estado])):
                         continue
                     try:
                         novas = _medir(cena, modo, executor, n, estado)

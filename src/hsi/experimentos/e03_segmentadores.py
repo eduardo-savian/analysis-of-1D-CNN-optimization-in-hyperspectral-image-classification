@@ -1,13 +1,13 @@
-"""Experimento 06: cada segmentador com a CNN ajustada para ele.
+"""Experimento 03: cada segmentador com a CNN ajustada para ele.
 
-Para cada cena e segmentador: busca TPE de 16 trials restrita àquele segmentador,
-escolha do vencedor pela validação e retreino do vencedor com 5 sementes. O SEEDS,
-segmentador do trabalho original, passa pelo mesmo tratamento e é a referência de
-`ganho_OA_pp`. Treino com os 85% do original, até 60 épocas e parada após 10 sem melhora,
-como na linha de base, nos trials e nos retreinos.
+Para cada cena e segmentador: otimização bayesiana de 16 trials restrita àquele
+segmentador, escolha do vencedor pela validação e retreino do vencedor com 5 sementes.
+O SEEDS, segmentador do trabalho original, passa pelo mesmo tratamento e é a referência
+de `ganho_OA_pp`. Treino com os 85% do original, até 200 épocas e parada após 10 sem
+melhora, como na linha de base, nos trials e nos retreinos.
 
-Grava `06_resumo.csv` (uma linha por cena e segmentador, lida pelo experimento 10) e
-`06_por_seed_<cenas>.csv`.
+Grava `03_resumo.csv` (uma linha por cena e segmentador, lida pelo experimento 05) e
+`03_por_seed_<cenas>.csv`.
 """
 
 import time
@@ -16,19 +16,20 @@ from dataclasses import replace
 import numpy as np
 import pandas as pd
 
-from hsi.config import SEGMENTERS, ExperimentConfig
+from hsi.config import CONFIG, SEGMENTERS, ExperimentConfig
 from hsi.experimentos.infra import caminho_resultado, carregar_feito, salvar
 from hsi.hpo import automated_hpo
 from hsi.pipeline import run_experiment
 
-TRIALS = 16
-SEMENTES = (11, 29, 42, 73, 101)
+C = CONFIG["experimentos"]["03"]
+TRIALS_SEGMENTADOR = C["trials"]
+SEMENTES = tuple(C["sementes"])
 
 
-def experimento_06(*cenas: str) -> list:
+def experimento_03(*cenas: str) -> list:
     """Segmentadores sob otimização conjunta."""
-    cenas = cenas or ("IP", "PU", "SA")
-    destino = caminho_resultado("06_resumo.csv")
+    cenas = cenas or tuple(C["cenas"])
+    destino = caminho_resultado("03_resumo.csv")
     resumo, feitas = carregar_feito(destino, ("cena", "condição"))
     por_semente = []
     for cena in cenas:
@@ -39,7 +40,7 @@ def experimento_06(*cenas: str) -> list:
                 continue
             inicio = time.perf_counter()
             base = ExperimentConfig(dataset=cena, segmenter=segmentador, seed=42)
-            trials = automated_hpo(base, TRIALS, search_epochs=base.epochs, strategy="tpe",
+            trials = automated_hpo(base, TRIALS_SEGMENTADOR, search_epochs=base.epochs, strategy="bayes",
                                    segmenters=(segmentador,))
             vencedor = trials.loc[trials["val_accuracy (objetivo)"].idxmax()]
             config = vencedor["config"]
@@ -82,6 +83,6 @@ def experimento_06(*cenas: str) -> list:
 
     if por_semente:
         pd.DataFrame(por_semente).to_csv(
-            caminho_resultado(f"06_por_seed_{'_'.join(cenas)}.csv"), index=False)
+            caminho_resultado(f"03_por_seed_{'_'.join(cenas)}.csv"), index=False)
     print(f"\nCSV: {destino}")
     return resumo

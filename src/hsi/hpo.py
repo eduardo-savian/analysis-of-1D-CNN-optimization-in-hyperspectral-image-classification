@@ -1,64 +1,62 @@
-"""Busca de hiperparâmetros: o espaço, as três estratégias e o laço que treina cada trial.
+"""Busca de hiperparâmetros: o espaço, as duas estratégias do projeto (busca em grade e
+otimização bayesiana) e o laço que treina cada trial.
 
-Um candidato é uma tupla de índices, um por gene (segmentador, configuração do
+Um candidato é uma tupla de índices, um por eixo (segmentador, configuração do
 segmentador, taxa de aprendizado, dropout, weight decay, lote e componentes do PCA).
-As três estratégias trabalham sobre essa mesma representação e começam com a mesma
-cobertura: os primeiros trials usam segmentadores distintos. O trial vale pela maior
-acurácia de validação do seu histórico; o teste só é relatado.
+O trial vale pela maior acurácia de validação do seu histórico; o teste só é relatado.
 """
 
+import itertools
 import json
+import warnings
 from dataclasses import replace
 
-import numpy as np
 import optuna
 import pandas as pd
 
-from hsi.config import PCA_COMPONENTS, SEGMENTERS
-from hsi.dados import SEGMENTER_PARAMS
+from hsi.config import CONFIG, PCA_COMPONENTS, SEGMENTERS
 from hsi.modelo import MIN_COMPONENTS
 from hsi.pipeline import run_experiment
+from hsi.segmentadores import SEGMENTER_PARAMS
 
-# Cada eixo inclui o valor da configuração herdada (taxa 1e-3, dropout 0,5, wd 0, lote 32).
-HPO_SPACE = {
-    "learning_rate": (3e-4, 1e-3, 3e-3),
-    "dropout": (0.2, 0.35, 0.5),
-    "weight_decay": (0.0, 1e-5, 1e-4),
-    "batch_size": (32, 64, 128),
-}
-STRATEGIES = ("random", "tpe", "genetic")
+# O espaço, a grade e as variações vêm de [hpo] em config.toml.
+_H = CONFIG["hpo"]
+HPO_SPACE = {eixo: tuple(valores) for eixo, valores in _H["espaco"].items()}
+# Os valores da configuração original em cada eixo, os padrões de [execucao].
+ORIGINAL = {eixo: CONFIG["execucao"][eixo] for eixo in HPO_SPACE}
+STRATEGIES = ("grid", "bayes")
+GRID_AXES = tuple(_H["eixos_da_grade"])
 
 
-def pca_options(dataset: str) -> list[int]:
-    # 0,5x, 1x e 1,5x o valor da cena, sem descer do mínimo que a CNN aceita. Em
-    # University of Pavia e Salinas Valley o 0,5x vira 15 e sobram duas opções.
+def pca_options(dataset: str, cnn: str = "projeto") -> list[int]:
+    # Os fatores de [hpo] sobre o valor da cena, sem descer do mínimo que a CNN aceita.
     base = PCA_COMPONENTS[dataset]
-    return sorted({max(MIN_COMPONENTS, int(round(base * f))) for f in (0.5, 1.0, 1.5)})
+    return sorted({max(MIN_COMPONENTS[cnn], int(round(base * f))) for f in _H["fatores_pca"]})
 
 
 def segmenter_options(segmenter: str, dataset: str) -> list[dict]:
-    """Três configurações por segmentador: a padrão da cena no meio e uma de cada lado."""
-    p = SEGMENTER_PARAMS[segmenter][dataset]
+    """Três configurações por segmentador: a padrão da cena no meio e uma de cada lado.
+
+    LSC e Watershed usam as três listas de [segmentadores]; o SEEDS, as variações de
+    [hpo.seeds] em torno do padrão da cena."""
     if segmenter == "seeds":
-        return [{"num_superpixels": max(40, int(p["num_superpixels"] * f)),
-                 "num_iterations": it, "prior": prior}
-                for f, it, prior in ((.70, 120, 1), (1.0, p["num_iterations"], p["prior"]),
-                                     (1.35, 250, 3))]
-    if segmenter == "slic":
-        return [{"region_size": max(3, p["region_size"] - 3), "ruler": 5.0},
-                {"region_size": p["region_size"], "ruler": p["ruler"]},
-                {"region_size": p["region_size"] + 3, "ruler": 20.0}]
+        p, v = SEGMENTER_PARAMS["seeds"][dataset], _H["seeds"]
+        menor, maior = [{"num_superpixels": max(v["minimo_superpixels"], int(p["num_superpixels"] * f)),
+                         "num_iterations": it, "prior": prior}
+                        for f, it, prior in zip(v["fator_superpixels"], v["num_iterations"], v["prior"])]
+        padrao = {k: p[k] for k in ("num_superpixels", "num_iterations", "prior")}
+        return [menor, padrao, maior]
+    s = CONFIG["segmentadores"]
     if segmenter == "lsc":
-        return [{"region_size": max(3, p["region_size"] - 3), "ratio": .04},
-                {"region_size": p["region_size"], "ratio": p["ratio"]},
-                {"region_size": p["region_size"] + 3, "ratio": .12}]
-    return [{"markers": max(20, int(p["markers"] * f))} for f in (.70, 1.0, 1.35)]
+        return [{"region_size": lado, "ratio": razao}
+                for lado, razao in zip(s["lsc"]["region_size"][dataset], s["lsc"]["ratio"])]
+    return [{"markers": m} for m in s["watershed"]["markers"][dataset]]
 
 
-def genes(dataset: str, segmenters=SEGMENTERS) -> list[tuple[str, tuple]]:
-    # O segmentador precisa ser o gene 0: é a posição que a cobertura inicial fixa.
+def genes(dataset: str, segmenters=SEGMENTERS, cnn: str = "projeto") -> list[tuple[str, tuple]]:
+    # O segmentador precisa ser o eixo 0: é a posição que a cobertura inicial fixa.
     return ([("segmenter", tuple(segmenters)), ("override_index", (0, 1, 2))]
-            + list(HPO_SPACE.items()) + [("pca_components", tuple(pca_options(dataset)))])
+            + list(HPO_SPACE.items()) + [("pca_components", tuple(pca_options(dataset, cnn)))])
 
 
 def decode(lista_genes, candidato, dataset) -> dict:
@@ -71,42 +69,49 @@ def decode(lista_genes, candidato, dataset) -> dict:
 
 
 # ------------------------------------------------------------------ estratégias
-# Cada estratégia chama `avaliar(candidato)`, que treina e devolve a validação, até
-# gastar `n_trials`.
+# Cada estratégia chama `avaliar(candidato)`, que treina e devolve a validação.
 
-def random_search(lista_genes, n_trials, seed, avaliar):
-    """Sorteio uniforme sem repetir candidatos; não usa os resultados anteriores."""
-    rng = np.random.default_rng(seed)
-
-    def sortear():
-        return tuple(int(rng.integers(len(op))) for _, op in lista_genes)
-
-    cobertura = list(range(len(lista_genes[0][1])))
-    vistos = set()
-    for _ in range(n_trials):
-        forcado = cobertura.pop(0) if cobertura else None
-        sorteado = sortear()
-        # Até 32 novos sorteios para fugir de um candidato já visto.
-        for _ in range(32):
-            candidato = sorteado if forcado is None else (forcado,) + sorteado[1:]
-            if candidato not in vistos:
-                break
-            sorteado = sortear()
-        vistos.add(candidato)
-        avaliar(candidato)
+def _indice_original(lista_genes, dataset) -> list[int]:
+    """O candidato da configuração original: configuração padrão do segmentador, taxa
+    1e-3, dropout 0,5, wd 0, lote 32 e o PCA padrão da cena."""
+    original = {**ORIGINAL, "override_index": 1, "pca_components": PCA_COMPONENTS[dataset]}
+    return [0 if nome == "segmenter" else opcoes.index(original[nome])
+            for nome, opcoes in lista_genes]
 
 
-def tpe_search(lista_genes, n_trials, seed, avaliar):
-    """TPE do Optuna. Segmentador e configuração do segmentador são categóricos; os demais eixos são
-    inteiros ordenados, porque neles o índice seguinte é de fato um valor maior."""
+def grid_search(lista_genes, dataset, seed, avaliar):
+    """Busca em grade sobre o segmentador e os eixos de GRID_AXES, com os demais eixos
+    no valor da configuração original. Não usa a semente: a grade é sempre a mesma."""
+    posicao = {nome: g for g, (nome, _) in enumerate(lista_genes)}
+    eixos = ["segmenter", *GRID_AXES]
+    base = _indice_original(lista_genes, dataset)
+    for indices in itertools.product(*(range(len(lista_genes[posicao[e]][1])) for e in eixos)):
+        candidato = list(base)
+        for eixo, i in zip(eixos, indices):
+            candidato[posicao[eixo]] = i
+        avaliar(tuple(candidato))
+
+
+def bayesian_search(lista_genes, n_trials, seed, avaliar):
+    """Otimização bayesiana com processo gaussiano (GPSampler do Optuna). Segmentador e
+    configuração do segmentador são categóricos; os demais eixos são inteiros ordenados,
+    porque neles o índice seguinte é de fato um valor maior."""
     optuna.logging.set_verbosity(optuna.logging.WARNING)
+    # O GPSampler ainda é marcado como experimental no Optuna 4.
+    warnings.filterwarnings("ignore", category=optuna.exceptions.ExperimentalWarning)
     cobertura = range(len(lista_genes[0][1]))
-    # Sem isso o Optuna sortearia 10 trials antes de começar a modelar.
-    estudo = optuna.create_study(direction="maximize", sampler=optuna.samplers.TPESampler(
-        seed=int(seed), n_startup_trials=max(4, len(cobertura))))
+    # Os primeiros trials são sorteados (um por segmentador, depois aleatórios) e só
+    # então o processo gaussiano passa a escolher; o padrão do Optuna seria 10.
+    estudo = optuna.create_study(direction="maximize", sampler=optuna.samplers.GPSampler(
+        seed=int(seed), n_startup_trials=max(_H["bayes_trials_iniciais"], len(cobertura))))
     for i in cobertura:
         estudo.enqueue_trial({"segmenter": int(i)}, skip_if_exists=False)
-    for _ in range(n_trials):
+    # O processo gaussiano às vezes propõe um candidato já treinado. Ele recebe o valor
+    # medido e não conta no orçamento; o limite de propostas evita um laço sem fim.
+    medidos = {}
+    for _ in range(8 * n_trials):
+        if len(medidos) == n_trials:
+            break
         trial = estudo.ask()
         candidato = []
         for nome, opcoes in lista_genes:
@@ -114,58 +119,24 @@ def tpe_search(lista_genes, n_trials, seed, avaliar):
                 candidato.append(int(trial.suggest_categorical(nome, list(range(len(opcoes))))))
             else:
                 candidato.append(int(trial.suggest_int(nome, 0, len(opcoes) - 1)))
-        estudo.tell(trial, float(avaliar(tuple(candidato))))
-
-
-def genetic_search(lista_genes, n_trials, seed, avaliar, population=8, elite=2,
-                   mutation=0.25, tournament=3):
-    """Algoritmo genético: torneio, cruzamento uniforme, mutação por gene e elitismo.
-
-    A primeira geração é a cobertura completada por sorteios. Os `elite` melhores
-    passam à geração seguinte sem treinar de novo, então cada geração nova custa
-    `population - elite` trials.
-    """
-    rng = np.random.default_rng(seed)
-
-    def sortear():
-        return tuple(int(rng.integers(len(op))) for _, op in lista_genes)
-
-    fila = [(i,) + sortear()[1:] for i in range(len(lista_genes[0][1]))]
-    while len(fila) < population:
-        fila.append(sortear())
-    geracao = []          # (validação, candidato) da geração atual
-    for _ in range(n_trials):
-        if not fila:
-            # sorted é estável: no empate, fica na frente quem foi avaliado antes.
-            anterior = sorted(geracao, key=lambda par: par[0], reverse=True)
-            geracao = anterior[:elite]
-            while len(fila) < population - elite:
-                pais = [max((anterior[int(rng.integers(len(anterior)))]
-                             for _ in range(tournament)), key=lambda par: par[0])[1]
-                        for _ in range(2)]
-                filho = tuple(pais[0][g] if rng.random() < .5 else pais[1][g]
-                              for g in range(len(lista_genes)))
-                filho = tuple(int(rng.integers(len(op))) if rng.random() < mutation else gene
-                              for gene, (_, op) in zip(filho, lista_genes))
-                fila.append(filho)
-        candidato = fila.pop(0)
-        geracao.append((float(avaliar(candidato)), candidato))
-
-
-SEARCHERS = {"random": random_search, "tpe": tpe_search, "genetic": genetic_search}
+        candidato = tuple(candidato)
+        if candidato not in medidos:
+            medidos[candidato] = float(avaliar(candidato))
+        estudo.tell(trial, medidos[candidato])
 
 
 # ------------------------------------------------------------------------ busca
 
-def automated_hpo(base, n_trials, search_epochs, strategy="random", segmenters=SEGMENTERS,
-                  population=8):
+def automated_hpo(base, n_trials, search_epochs, strategy="bayes", segmenters=SEGMENTERS):
     """Executa a busca e devolve a tabela de trials, uma linha por trial.
+
+    Na grade, `n_trials` não vale: o número de trials é o tamanho da grade.
 
     A coluna `config` guarda a configuração de cada trial; o vencedor é a linha de
     maior `val_accuracy (objetivo)` (no empate, o trial mais antigo).
     """
     segmenters = tuple(segmenters)
-    lista_genes = genes(base.dataset, segmenters)
+    lista_genes = genes(base.dataset, segmenters, base.cnn)
     linhas = []
 
     def avaliar(candidato):
@@ -192,9 +163,8 @@ def automated_hpo(base, n_trials, search_epochs, strategy="random", segmenters=S
         })
         return validacao
 
-    n_trials = max(n_trials, len(segmenters))
-    if strategy == "genetic":
-        genetic_search(lista_genes, n_trials, base.seed, avaliar, population=population)
+    if strategy == "grid":
+        grid_search(lista_genes, base.dataset, base.seed, avaliar)
     else:
-        SEARCHERS[strategy](lista_genes, n_trials, base.seed, avaliar)
+        bayesian_search(lista_genes, max(n_trials, len(segmenters)), base.seed, avaliar)
     return pd.DataFrame(linhas)

@@ -3,23 +3,21 @@
 carga da cena -> ramo espectral (PCA) e ramo espacial (PCA de 3 componentes, RGB e
 segmentador) -> divisão em treino, validação e teste -> DataLoaders.
 
-Os dois ramos não dependem um do outro; `prepare_data` pode executá-los em sequência,
-em duas threads ou com o ramo espacial num processo filho.
+Os segmentadores estão em segmentadores.py. Os dois ramos não dependem um do outro;
+`prepare_data` pode executá-los em sequência ou em duas threads.
 """
 
-import multiprocessing
-import time
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 
-import cv2 as cv
 import numpy as np
 import scipy.io as sio
 import torch
-from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
+from sklearn.utils.extmath import randomized_svd
 from torch.utils.data import DataLoader, TensorDataset
 
-from hsi.config import DADOS
+from hsi.config import DADOS, SEMENTE_DADOS
+from hsi.segmentadores import rgb_composite, segment, segmenter_params
 
 # Arquivo .mat e chave do array dentro dele, para o cubo e para a verdade terrestre.
 SCENE_FILES = {
@@ -45,88 +43,18 @@ def pixel_table(cubo: np.ndarray, gt: np.ndarray) -> tuple[np.ndarray, np.ndarra
 
 
 def apply_pca(x: np.ndarray, n_components: int, seed: int) -> np.ndarray:
-    # Branqueamento e semente fixa como no original. Fica fit + transform, e não
-    # fit_transform, porque os dois caminhos diferem nos últimos dígitos.
-    pca = PCA(n_components=n_components, whiten=True, random_state=seed)
-    pca.fit(x)
-    return pca.transform(x)
+    """PCA com branqueamento, como o PCA(whiten=True) do sklearn anterior à 1.5 que o
+    original usava: SVD randomizado, com o sinal de cada componente decidido por U.
 
-
-def rgb_composite(componentes: np.ndarray, forma: tuple[int, int]) -> np.ndarray:
-    """Três componentes principais -> imagem RGB uint8, a entrada dos segmentadores."""
-    canais = []
-    for i in range(3):
-        c = componentes[:, i]
-        normalizado = (c - c.min()) / (c.max() - c.min())
-        canais.append((255 * normalizado).astype(np.uint8).reshape(forma))
-    return np.dstack(canais)
-
-
-# ----------------------------------------------------------------- segmentadores
-
-# Parâmetros padrão por cena. Indian Pines (145 x 145 px, talhões estreitos) pede
-# regiões menores. Os do SEEDS são os do notebook original.
-SEGMENTER_PARAMS = {
-    "seeds": {
-        "IP": dict(num_superpixels=350, num_iterations=200, prior=2,
-                   num_levels=10, num_histogram_bins=5, double_step=True),
-        "PU": dict(num_superpixels=150, num_iterations=150, prior=1,
-                   num_levels=8, num_histogram_bins=15, double_step=True),
-        "SA": dict(num_superpixels=150, num_iterations=150, prior=1,
-                   num_levels=8, num_histogram_bins=15, double_step=True),
-    },
-    # O SLIC roda no modo SLICO, que ajusta a compacidade sozinho: `ruler` não muda
-    # os rótulos, mas fica registrado porque faz parte do espaço de busca.
-    "slic": {c: dict(region_size=8 if c == "IP" else 12, ruler=10.0, num_iterations=10)
-             for c in ("IP", "PU", "SA")},
-    "lsc": {c: dict(region_size=8 if c == "IP" else 12, ratio=0.075, num_iterations=10)
-            for c in ("IP", "PU", "SA")},
-    "watershed": {"IP": dict(markers=350), "PU": dict(markers=500), "SA": dict(markers=500)},
-}
-
-
-def segmenter_params(config) -> dict:
-    return {**SEGMENTER_PARAMS[config.segmenter][config.dataset], **config.segmenter_overrides}
-
-
-def segment(rgb: np.ndarray, algoritmo: str, p: dict) -> np.ndarray:
-    """Mapa (H, W) com o id da região de cada pixel."""
-    if algoritmo == "watershed":
-        return _watershed(rgb, p["markers"])
-    if algoritmo == "seeds":
-        h, w, canais = rgb.shape
-        s = cv.ximgproc.createSuperpixelSEEDS(w, h, canais, p["num_superpixels"], p["num_levels"],
-                                              p["prior"], p["num_histogram_bins"], p["double_step"])
-        s.iterate(rgb, p["num_iterations"])
-    elif algoritmo == "slic":
-        s = cv.ximgproc.createSuperpixelSLIC(rgb, algorithm=cv.ximgproc.SLICO,
-                                             region_size=p["region_size"], ruler=p["ruler"])
-        s.iterate(p["num_iterations"])
-    elif algoritmo == "lsc":
-        s = cv.ximgproc.createSuperpixelLSC(rgb, region_size=p["region_size"], ratio=p["ratio"])
-        s.iterate(p["num_iterations"])
-    else:
-        raise ValueError(f"segmentador inválido: {algoritmo!r}")
-    return s.getLabels()
-
-
-def _watershed(rgb: np.ndarray, n_marcadores: int) -> np.ndarray:
-    # Marcadores numa grade com a proporção da cena. Os da moldura se perdem, porque o
-    # cv.watershed escreve -1 na borda da imagem.
-    h, w = rgb.shape[:2]
-    linhas = max(1, int(round(np.sqrt(n_marcadores * h / w))))
-    colunas = max(1, int(round(n_marcadores / linhas)))
-    marcadores = np.zeros((h, w), dtype=np.int32)
-    k = 1
-    for y in np.linspace(0, h - 1, linhas, dtype=int):
-        for x in np.linspace(0, w - 1, colunas, dtype=int):
-            marcadores[y, x] = k
-            k += 1
-    bruto = cv.watershed(cv.cvtColor(rgb, cv.COLOR_RGB2BGR), marcadores)
-    # As linhas entre bacias (-1) viram uma região própria, a de id 0.
-    bruto[bruto < 0] = 0
-    _, rotulos = np.unique(bruto, return_inverse=True)
-    return rotulos.reshape(bruto.shape).astype(np.int32)
+    O sklearn atual usa outro algoritmo e decide o sinal por V, o que inverte algumas
+    componentes; no PCA de 3 componentes isso inverte um canal da composição RGB e muda
+    a segmentação em Indian Pines e University of Pavia.
+    """
+    centrado = x.astype(np.float64) - x.mean(axis=0)
+    _, s, vt = randomized_svd(centrado, n_components, n_oversamples=10, n_iter="auto",
+                              power_iteration_normalizer="auto", flip_sign=True,
+                              random_state=seed)
+    return (centrado @ vt.T) / np.sqrt(s ** 2 / (len(x) - 1))
 
 
 # ------------------------------------------------------------ os dois ramos
@@ -142,11 +70,6 @@ def spatial_branch(pixels, forma, algoritmo, params, seed) -> np.ndarray:
     return segment(rgb, algoritmo, params)
 
 
-def _cronometrar(funcao, *args):
-    inicio = time.perf_counter()
-    return funcao(*args), time.perf_counter() - inicio
-
-
 # ---------------------------------------------------------- divisão dos dados
 
 def split_indices(rotulos, test_ratio, valid_ratio, seed):
@@ -154,9 +77,11 @@ def split_indices(rotulos, test_ratio, valid_ratio, seed):
     indices = np.arange(len(rotulos))
     treino, resto = train_test_split(indices, test_size=test_ratio, random_state=seed,
                                      stratify=rotulos)
-    # No original, o primeiro retorno desta segunda chamada é o teste.
+    # No original, o primeiro retorno desta segunda chamada é o teste, e ela estratifica
+    # pelos rótulos já em one-hot, o que muda o sorteio em relação aos inteiros.
+    one_hot = np.eye(rotulos.max() + 1, dtype=np.float32)[rotulos[resto]]
     teste, val = train_test_split(resto, test_size=valid_ratio, random_state=seed,
-                                  stratify=rotulos[resto])
+                                  stratify=one_hot)
     return treino, val, teste
 
 
@@ -175,47 +100,33 @@ def subsample_train(treino, rotulos, fracao, seed):
 
 # ------------------------------------------------------------- preparação
 
-def prepare_data(config, backend: str = "sequential", cena=None):
-    """Executa os dois ramos e divide as amostras. Devolve `(dados, tempos)`.
+def prepare_data(config, backend: str = "sequential") -> dict:
+    """Executa os dois ramos e divide as amostras.
 
-    `dados` é um dicionário com os espectros reduzidos, as classes, o id do superpixel
-    de cada pixel rotulado, os índices de treino, validação e teste e a posição
-    (linha, coluna) de cada amostra. `tempos` traz a duração de cada ramo e a do
-    bloco inteiro.
+    Devolve um dicionário com os espectros reduzidos, as classes, o id do superpixel de
+    cada pixel rotulado, os índices de treino, validação e teste e a posição (linha,
+    coluna) de cada amostra. Com `backend="thread"`, os dois ramos rodam ao mesmo tempo.
     """
-    cubo, gt = cena if cena is not None else load_scene(config.dataset)
+    cubo, gt = load_scene(config.dataset)
     pixels, rotulos_cena = pixel_table(cubo, gt)
     rotulados = np.flatnonzero(rotulos_cena > 0)
     espectros = pixels[rotulados]
     rotulos = (rotulos_cena[rotulados] - 1).astype(np.int64)
 
-    args_espectral = (espectros, config.pca_components, config.seed)
-    args_espacial = (pixels, gt.shape, config.segmenter, segmenter_params(config), config.seed)
-    inicio = time.perf_counter()
-    if backend == "sequential":
-        reduzidos, t_espectral = _cronometrar(spectral_branch, *args_espectral)
-        mapa, t_espacial = _cronometrar(spatial_branch, *args_espacial)
-    elif backend == "thread":
+    args_espectral = (espectros, config.pca_components, SEMENTE_DADOS)
+    args_espacial = (pixels, gt.shape, config.segmenter, segmenter_params(config), SEMENTE_DADOS)
+    if backend == "thread":
         # PCA e OpenCV liberam o GIL no trabalho pesado, então as duas threads rodam
         # de fato ao mesmo tempo, compartilhando os arrays sem cópia.
         with ThreadPoolExecutor(max_workers=2) as pool:
-            espacial = pool.submit(_cronometrar, spatial_branch, *args_espacial)
-            reduzidos, t_espectral = pool.submit(_cronometrar, spectral_branch,
-                                                 *args_espectral).result()
-            mapa, t_espacial = espacial.result()
-    elif backend == "process":
-        # Fork: o filho herda o OpenCV com uma thread, que o LSC precisa.
-        with ProcessPoolExecutor(max_workers=1,
-                                 mp_context=multiprocessing.get_context("fork")) as pool:
-            espacial = pool.submit(_cronometrar, spatial_branch, *args_espacial)
-            reduzidos, t_espectral = _cronometrar(spectral_branch, *args_espectral)
-            mapa, t_espacial = espacial.result()
+            espacial = pool.submit(spatial_branch, *args_espacial)
+            reduzidos = spectral_branch(*args_espectral)
+            mapa = espacial.result()
     else:
-        raise ValueError(f"backend inválido: {backend!r}")
-    tempos = {"espectral": t_espectral, "espacial": t_espacial,
-              "parede": time.perf_counter() - inicio}
+        reduzidos = spectral_branch(*args_espectral)
+        mapa = spatial_branch(*args_espacial)
 
-    treino, val, teste = split_indices(rotulos, config.test_ratio, config.valid_ratio, config.seed)
+    treino, val, teste = split_indices(rotulos, config.test_ratio, config.valid_ratio, SEMENTE_DADOS)
     treino = subsample_train(treino, rotulos, config.train_fraction, config.seed)
     dados = {
         "espectros": reduzidos,
@@ -227,7 +138,7 @@ def prepare_data(config, backend: str = "sequential", cena=None):
         "n_classes": int(rotulos.max()) + 1,
     }
     check_data(dados)
-    return dados, tempos
+    return dados
 
 
 def check_data(d: dict) -> None:

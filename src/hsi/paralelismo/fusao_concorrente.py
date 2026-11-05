@@ -27,7 +27,7 @@ import torch
 from hsi.dados import spatial_branch
 
 
-def new_pool(n: int) -> ThreadPoolExecutor:
+def new_thread_pool(n: int) -> ThreadPoolExecutor:
     # O número de threads do PyTorch vale por thread: as do pool subiriam com o padrão
     # da máquina (32), e uma convolução de 64 pixels levaria ~100 ms em vez de 0,2 ms.
     return ThreadPoolExecutor(max_workers=n, thread_name_prefix="T",
@@ -41,7 +41,7 @@ def warm_pool(modelo, entrada: dict, n: int) -> ThreadPoolExecutor:
     A barreira obriga o executor a criar as `n` threads; sem ela, uma thread rápida
     pegaria várias passadas e outras nasceriam frias dentro do bloco medido.
     """
-    pool = new_pool(n)
+    pool = new_thread_pool(n)
     barreira = threading.Barrier(n)
     x = torch.from_numpy(entrada["espectros"][:8]).float().unsqueeze(1)
 
@@ -139,7 +139,7 @@ def executar_concorrente(modelo, entrada: dict, n: int, bloco: int = 1, secao: s
             "publicado": False, "trava": threading.Condition()}
     relogio = {}
     pool_proprio = pool is None
-    pool = pool or new_pool(n)
+    pool = pool or new_thread_pool(n)
     origem = time.perf_counter()
     t0 = threading.Thread(target=_t0, args=(entrada, mapa, secao, origem, relogio), name="T0")
     t0.start()

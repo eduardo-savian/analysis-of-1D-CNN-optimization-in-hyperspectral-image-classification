@@ -1,59 +1,57 @@
-"""Caminhos do projeto e a configuração de uma execução."""
+"""Caminhos do projeto, as variáveis de execução e a configuração de uma execução.
 
+As variáveis ficam em config.toml, na raiz do repositório. Este módulo o lê uma vez, e
+cada módulo pega daqui a sua seção: CONFIG["hpo"], CONFIG["experimentos"]["03"] etc.
+"""
+
+import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# src/hsi/config.py -> raiz do repositório, onde ficam data/ e experimentos/.
+# src/hsi/config.py -> raiz do repositório, onde ficam config.toml, data/ e experimentos/.
 RAIZ = Path(__file__).resolve().parents[2]
-DADOS = RAIZ / "data" / "dataHSI"
-RESULTADOS = RAIZ / "experimentos" / "resultados"
+with open(RAIZ / "config.toml", "rb") as arquivo:
+    CONFIG = tomllib.load(arquivo)
+
+DADOS = RAIZ / CONFIG["caminhos"]["dados"]
+RESULTADOS = RAIZ / CONFIG["caminhos"]["resultados"]
+FIGURAS = RAIZ / CONFIG["caminhos"]["figuras"]
 
 DATASETS = {"IP": "Indian Pines", "PU": "University of Pavia", "SA": "Salinas Valley"}
-SEGMENTERS = ("seeds", "slic", "lsc", "watershed")
-
-# Componentes do PCA espectral por cena, como no notebook original.
-PCA_COMPONENTS = {"IP": 30, "PU": 15, "SA": 15}
+SEGMENTERS = tuple(CONFIG["segmentadores"]["lista"])
+PCA_COMPONENTS = CONFIG["dados"]["pca"]
+SEMENTE_DADOS = CONFIG["dados"]["semente"]
+_PADRAO = CONFIG["execucao"]
 
 
 @dataclass(frozen=True)
 class ExperimentConfig:
-    """Parâmetros de uma execução.
+    """Parâmetros de uma execução, com os padrões da seção [execucao] de config.toml."""
 
-    Os padrões são os do notebook de Souza (2023): University of Pavia, SEEDS, lote 32,
-    taxa 1e-3, dropout 0,5 e até 60 épocas. A parada antecipada é a deste trabalho:
-    10 épocas sem a acurácia de validação melhorar 0,001.
-    """
-
-    dataset: str = "PU"
-    segmenter: str = "seeds"
+    dataset: str = _PADRAO["dataset"]
+    segmenter: str = _PADRAO["segmenter"]
     # Mudanças sobre os parâmetros padrão do segmentador; a busca de hiperparâmetros
     # preenche este campo.
     segmenter_overrides: dict = field(default_factory=dict)
-    # "scalar" concatena o id do superpixel como um número, como no original;
-    # "embedding" troca o id por um vetor aprendido por região.
-    fusion: str = "scalar"
-    embedding_dim: int = 8
+    cnn: str = _PADRAO["cnn"]
 
-    # 15% das amostras saem do treino e se dividem entre teste e validação.
-    test_ratio: float = 0.15
-    valid_ratio: float = 0.5
-    # Fração do treino usada de fato; validação e teste não mudam.
-    train_fraction: float = 1.0
+    test_ratio: float = _PADRAO["test_ratio"]
+    valid_ratio: float = _PADRAO["valid_ratio"]
+    train_fraction: float = _PADRAO["train_fraction"]
 
-    epochs: int = 60
-    batch_size: int = 32
-    learning_rate: float = 1e-3
-    weight_decay: float = 0.0
-    dropout: float = 0.5
-    # 1e-7 é o padrão do Keras; o do PyTorch é 1e-8.
-    adam_eps: float = 1e-7
-    patience: int = 10
-    min_delta: float = 1e-3
-    # Meta de acurácia de validação que encerra o treino; None desliga.
-    target: float | None = None
+    epochs: int = _PADRAO["epochs"]
+    batch_size: int = _PADRAO["batch_size"]
+    learning_rate: float = _PADRAO["learning_rate"]
+    weight_decay: float = _PADRAO["weight_decay"]
+    dropout: float = _PADRAO["dropout"]
+    adam_eps: float = _PADRAO["adam_eps"]
+    patience: int = _PADRAO["patience"]
+    min_delta: float = _PADRAO["min_delta"]
+    # None desliga a meta.
+    target: float | None = _PADRAO.get("target")
 
-    seed: int = 42
-    # 0 usa o valor da cena em PCA_COMPONENTS.
+    seed: int = _PADRAO["seed"]
+    # 0 usa o valor da cena em [dados.pca].
     pca_components: int = 0
 
     def __post_init__(self):
@@ -61,7 +59,7 @@ class ExperimentConfig:
             raise ValueError(f"cena inválida: {self.dataset!r}")
         if self.segmenter not in SEGMENTERS:
             raise ValueError(f"segmentador inválido: {self.segmenter!r}")
-        if self.fusion not in ("scalar", "embedding"):
-            raise ValueError(f"fusão inválida: {self.fusion!r}")
+        if self.cnn not in ("projeto", "original"):
+            raise ValueError(f"CNN inválida: {self.cnn!r}")
         if not self.pca_components:
             object.__setattr__(self, "pca_components", PCA_COMPONENTS[self.dataset])

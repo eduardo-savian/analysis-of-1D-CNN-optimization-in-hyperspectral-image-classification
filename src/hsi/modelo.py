@@ -1,11 +1,26 @@
-"""CNN 1D de Souza (2023) com a fusão do id do superpixel."""
+"""CNN 1D com a fusão do id do superpixel, em duas arquiteturas.
+
+- "projeto", a usada no trabalho: a do capítulo 3, com convoluções de 16, 32, 64 e 128
+  filtros, max-pooling depois das três primeiras e densas de 256 e 128 neurônios;
+- "original", a do notebook de Souza (2023): 16, 32, 64 e 64 filtros, sem pooling, e
+  densas de 128 e 64. Fica para a comparação da linha de base.
+
+Nas duas, os kernels são os do original (9, 3, 3 e 3), e a saída tem dropout nas duas
+densas e devolve logits; o softmax fica na função de perda.
+"""
 
 import torch
-import torch.nn as nn
+from torch import nn
 
-# As quatro convoluções não têm padding e consomem 8 + 2 + 2 + 2 = 14 posições do
-# espectro; com menos de 15 componentes a saída ficaria vazia.
-MIN_COMPONENTS = 15
+KERNELS = (9, 3, 3, 3)
+ARQUITETURAS = {
+    "projeto": {"filtros": (16, 32, 64, 128), "pooling": True, "densas": (256, 128)},
+    "original": {"filtros": (16, 32, 64, 64), "pooling": False, "densas": (128, 64)},
+}
+# No projeto, o padding "same" mantém o comprimento e só os três poolings de 2 o
+# encurtam: com menos de 8 componentes sobraria zero. O original, sem padding, consome
+# 8 + 2 + 2 + 2 = 14 posições e pede ao menos 15.
+MIN_COMPONENTS = {"projeto": 8, "original": 15}
 
 
 class CNN1D(nn.Module):
@@ -16,26 +31,30 @@ class CNN1D(nn.Module):
     porque a fusão concorrente protege apenas ele com a trava.
     """
 
-    def __init__(self, n_components: int, n_classes: int, dropout: float,
-                 fusion: str = "scalar", n_segments: int = 0, embedding_dim: int = 8):
+    def __init__(self, n_components: int, n_classes: int, dropout: float, cnn: str = "projeto"):
         super().__init__()
-        if n_components < MIN_COMPONENTS:
-            raise ValueError(f"a CNN 1D precisa de pelo menos {MIN_COMPONENTS} componentes")
-        self.convolucoes = nn.Sequential(
-            nn.Conv1d(1, 16, kernel_size=9), nn.ReLU(),
-            nn.Conv1d(16, 32, kernel_size=3), nn.ReLU(),
-            nn.Conv1d(32, 64, kernel_size=3), nn.ReLU(),
-            nn.Conv1d(64, 64, kernel_size=3), nn.ReLU(),
-            nn.Flatten(),
-        )
-        n_flat = 64 * (n_components - 14)
-        # "embedding": uma linha aprendida por região no lugar do id cru.
-        self.embedding = nn.Embedding(n_segments, embedding_dim) if fusion == "embedding" else None
-        entrada_densas = n_flat + (embedding_dim if self.embedding is not None else 1)
+        if n_components < MIN_COMPONENTS[cnn]:
+            raise ValueError(f"a CNN {cnn!r} precisa de pelo menos {MIN_COMPONENTS[cnn]} componentes")
+        arq = ARQUITETURAS[cnn]
+        camadas, canais, comprimento = [], 1, n_components
+        for i, (filtros, kernel) in enumerate(zip(arq["filtros"], KERNELS)):
+            if arq["pooling"]:
+                camadas += [nn.Conv1d(canais, filtros, kernel, padding="same"), nn.ReLU()]
+                if i < 3:
+                    camadas.append(nn.MaxPool1d(2))
+                    comprimento //= 2
+            else:
+                camadas += [nn.Conv1d(canais, filtros, kernel), nn.ReLU()]
+                comprimento -= kernel - 1
+            canais = filtros
+        self.convolucoes = nn.Sequential(*camadas, nn.Flatten())
+        # As densas recebem o vetor achatado mais o id do superpixel, como um número só.
+        entrada_densas = canais * comprimento + 1
+        d1, d2 = arq["densas"]
         self.densas = nn.Sequential(
-            nn.Linear(entrada_densas, 128), nn.ReLU(), nn.Dropout(dropout),
-            nn.Linear(128, 64), nn.ReLU(), nn.Dropout(dropout),
-            nn.Linear(64, n_classes),
+            nn.Linear(entrada_densas, d1), nn.ReLU(), nn.Dropout(dropout),
+            nn.Linear(d1, d2), nn.ReLU(), nn.Dropout(dropout),
+            nn.Linear(d2, n_classes),
         )
         # Inicialização do Keras (Xavier uniforme, viés zero), que o original usava.
         for camada in self.modules():
@@ -44,8 +63,6 @@ class CNN1D(nn.Module):
                 nn.init.zeros_(camada.bias)
 
     def fundir(self, caracteristicas: torch.Tensor, seg: torch.Tensor) -> torch.Tensor:
-        if self.embedding is not None:
-            seg = self.embedding(seg.reshape(-1).long())
         return torch.cat([caracteristicas, seg], dim=1)
 
     def forward(self, x: torch.Tensor, seg: torch.Tensor) -> torch.Tensor:
@@ -55,10 +72,7 @@ class CNN1D(nn.Module):
 def build_model(config, dados: dict, device):
     """Rede, perda e otimizador para uma configuração e um conjunto de dados."""
     modelo = CNN1D(
-        dados["espectros"].shape[1], dados["n_classes"], config.dropout, config.fusion,
-        # O maior id + 1, e não a contagem de ids: os ids têm buracos depois que os
-        # pixels sem rótulo saem.
-        n_segments=int(dados["segmentos"].max()) + 1, embedding_dim=config.embedding_dim,
+        dados["espectros"].shape[1], dados["n_classes"], config.dropout, config.cnn,
     ).to(device)
     perda = nn.CrossEntropyLoss()
     otimizador = torch.optim.Adam(modelo.parameters(), lr=config.learning_rate,

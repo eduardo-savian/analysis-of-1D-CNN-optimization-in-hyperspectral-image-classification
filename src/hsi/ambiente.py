@@ -35,7 +35,7 @@ def check_versions() -> list[str]:
         if not ok:
             divergentes.append(pacote)
         print(f"{pacote:32s} {instalada:16s} {'ok' if ok else f'esperada {esperada}'}")
-    # SEEDS, SLIC e LSC estão só no pacote opencv-contrib.
+    # SEEDS e LSC estão só no pacote opencv-contrib.
     if not hasattr(cv, "ximgproc"):
         print("cv2.ximgproc ausente: instale opencv-contrib-python-headless")
     return divergentes
@@ -53,8 +53,8 @@ def configure_determinism() -> None:
     """Deixa as execuções repetíveis: mesmas sementes, mesmo resultado.
 
     O OpenCV fica com uma thread porque o LSC paralelo devolvia rótulos diferentes a
-    cada chamada com a mesma imagem. Com uma thread, o LSC fica de três a quatro vezes
-    mais lento (LSC_THREADS_MS em experimentos/medicoes.py).
+    cada chamada com a mesma imagem. Com uma thread, o LSC fica de duas a quatro vezes
+    mais lento (LSC_THREADS_MS em experimentos/resultados/medicoes_avulsas.md).
     """
     cv.setNumThreads(1)
     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")

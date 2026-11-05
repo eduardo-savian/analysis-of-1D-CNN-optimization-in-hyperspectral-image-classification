@@ -1,10 +1,10 @@
-"""Experimento 10: quanto a busca de hiperparâmetros acrescenta sobre a configuração herdada.
+"""Experimento 05: quanto a busca de hiperparâmetros acrescenta sobre a configuração original.
 
 Para cada segmentador, duas configurações com 5 sementes cada:
 - "herdada": a do notebook de Souza (2023), taxa 1e-3, dropout 0,5, wd 0, lote 32 e o
   PCA padrão da cena;
-- "otimizada": a vencedora do experimento 06 para a mesma cena e segmentador.
-Treino com os 85% do original, até 60 épocas e parada após 10 sem melhora,
+- "otimizada": a vencedora do experimento 03 para a mesma cena e segmentador.
+Treino com os 85% do original, até 200 épocas e parada após 10 sem melhora,
 como na linha de base.
 """
 
@@ -13,18 +13,19 @@ import ast
 import numpy as np
 import pandas as pd
 
-from hsi.config import SEGMENTERS, ExperimentConfig
+from hsi.config import CONFIG, SEGMENTERS, ExperimentConfig
 from hsi.experimentos.infra import caminho_resultado, carregar_feito, salvar
+from hsi.hpo import ORIGINAL
 from hsi.pipeline import run_experiment
 
-SEMENTES = (11, 29, 42, 73, 101)
-HERDADA = dict(learning_rate=1e-3, dropout=0.5, weight_decay=0.0, batch_size=32)
+C = CONFIG["experimentos"]["05"]
+SEMENTES = tuple(C["sementes"])
 
 
-def _config(vencedores, cena, segmentador, configuracao, semente):
+def _config_impacto(vencedores, cena, segmentador, configuracao, semente):
     comum = dict(dataset=cena, segmenter=segmentador, seed=semente)
     if configuracao == "herdada":
-        return ExperimentConfig(**comum, **HERDADA)
+        return ExperimentConfig(**comum, **ORIGINAL)
     v = vencedores[(vencedores["cena"] == cena) & (vencedores["condição"] == segmentador)].iloc[0]
     return ExperimentConfig(
         **comum, learning_rate=float(v["learning_rate"]), dropout=float(v["dropout"]),
@@ -35,11 +36,11 @@ def _config(vencedores, cena, segmentador, configuracao, semente):
     )
 
 
-def experimento_10(*cenas: str) -> pd.DataFrame:
+def experimento_05(*cenas: str) -> pd.DataFrame:
     """Configuração herdada contra configuração otimizada, por segmentador."""
-    cenas = cenas or ("IP",)
-    vencedores = pd.read_csv(caminho_resultado("06_resumo.csv"))
-    destino = caminho_resultado("10_impacto_hpo.csv")
+    cenas = cenas or tuple(C["cenas"])
+    vencedores = pd.read_csv(caminho_resultado("03_resumo.csv"))
+    destino = caminho_resultado("05_impacto_hpo.csv")
     linhas, feitas = carregar_feito(destino, ("cena", "condição", "configuração", "semente"))
     for cena in cenas:
         print(f"\n### {cena}")
@@ -48,7 +49,7 @@ def experimento_10(*cenas: str) -> pd.DataFrame:
                 for semente in SEMENTES:
                     if (cena, segmentador, configuracao, semente) in feitas:
                         continue
-                    r = run_experiment(_config(vencedores, cena, segmentador, configuracao, semente))
+                    r = run_experiment(_config_impacto(vencedores, cena, segmentador, configuracao, semente))
                     linhas.append({"cena": cena, "condição": segmentador, "configuração": configuracao,
                                    "semente": semente, "OA": r["OA"], "AA": r["AA"],
                                    "Kappa": r["Kappa"], "épocas": r["epocas"]})

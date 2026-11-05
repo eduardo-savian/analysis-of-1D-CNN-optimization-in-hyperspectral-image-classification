@@ -21,13 +21,13 @@ from matplotlib.patches import Patch  # noqa: E402
 from matplotlib.ticker import FuncFormatter  # noqa: E402
 
 from hsi.ambiente import configure_determinism  # noqa: E402
-from hsi.config import RAIZ, RESULTADOS, SEGMENTERS, ExperimentConfig  # noqa: E402
-from hsi.dados import (SEGMENTER_PARAMS, apply_pca, load_scene, pixel_table,  # noqa: E402
-                       prepare_data, rgb_composite, segment)
-from hsi.particao import partition_scene  # noqa: E402
+from hsi.config import FIGURAS, RESULTADOS, SEGMENTERS, ExperimentConfig  # noqa: E402
+from hsi.dados import apply_pca, load_scene, pixel_table, prepare_data  # noqa: E402
+from hsi.paralelismo.particao import partition_scene  # noqa: E402
 from hsi.pipeline import run_experiment  # noqa: E402
+from hsi.segmentadores import SEGMENTER_PARAMS, rgb_composite, segment  # noqa: E402
 
-DESTINO = RAIZ / "tcc" / "TCC III - EDUARDO SAVIAN" / "src" / "assets" / "resultados"
+DESTINO = FIGURAS
 
 # Paleta que continua distinguível para daltônicos; cada entidade tem uma cor fixa.
 AZUL, LARANJA, AGUA, AMARELO, VIOLETA = "#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#4a3aa7"
@@ -103,7 +103,7 @@ def rotular_barras(eixo, barras, valores, casas=2, sufixo="", cor=None, deslocam
                       bbox=dict(fc="white", ec="none", pad=0.6) if fundo else None)
 
 
-def salvar(fig, nome: str) -> None:
+def salvar_figura(fig, nome: str) -> None:
     DESTINO.mkdir(parents=True, exist_ok=True)
     for extensao in ("pdf", "png"):
         fig.savefig(DESTINO / f"{nome}.{extensao}")
@@ -125,7 +125,7 @@ def f_fusao_linha_do_tempo(cena: str = "PU"):
     """
     arranjos = [("concorrente", "como no esquema (convolução e fusão na mesma tarefa)"),
                 ("desacoplado", "variante desacoplada (todas as convoluções primeiro)")]
-    quadros = {a: ler(f"14_linha_do_tempo_{cena}_{a}.csv") for a, _ in arranjos}
+    quadros = {a: ler(f"08_linha_do_tempo_{cena}_{a}.csv") for a, _ in arranjos}
     fim = max(q["fim"].max() for q in quadros.values())
     fig, eixos = plt.subplots(2, 1, figsize=(7.4, 4.4), sharex=True)
     for eixo, (arranjo, titulo) in zip(eixos, arranjos):
@@ -172,14 +172,14 @@ def f_fusao_linha_do_tempo(cena: str = "PU"):
                              Patch(color=LARANJA, label="leitura do mapa, concatenação e densas")],
                     ncol=3, loc="lower left", bbox_to_anchor=(0, 1.18), frameon=False)
     fig.tight_layout(h_pad=1.2)
-    salvar(fig, "fusao_linha_do_tempo")
+    salvar_figura(fig, "fusao_linha_do_tempo")
 
 
 # ------------------------------------------------------ busca de hiperparâmetros
 
 def f_eixos():
     """Validação média por valor de cada eixo, com a configuração original marcada."""
-    t = ler("08_trials.csv")
+    t = ler("04_trials.csv")
     # Em ordem de amplitude, como na tabela do apêndice. Taxa de aprendizado e weight
     # decay em unidades de 10⁻³: rótulos curtos e uma notação só por eixo.
     eixos_hpo = [("dropout", "dropout", 0.5, 1),
@@ -213,12 +213,12 @@ def f_eixos():
                         Patch(color=NEUTRO, label="outros valores do espaço")],
                ncol=2, loc="upper center", bbox_to_anchor=(0.5, 1.0), frameon=False)
     fig.tight_layout(rect=(0, 0, 1, 0.94), w_pad=0.8, h_pad=1.6)
-    salvar(fig, "eixos_hpo")
+    salvar_figura(fig, "eixos_hpo")
 
 
 # ------------------------------------------------------- cenas, segmentação e partição
 
-NOME_SEG = {"seeds": "SEEDS", "slic": "SLIC", "lsc": "LSC", "watershed": "Watershed"}
+NOME_SEG = {"seeds": "SEEDS", "lsc": "LSC", "watershed": "Watershed"}
 # 20 cores distinguíveis; Indian Pines usa as 16 primeiras, uma por classe.
 CORES_CLASSES = plt.get_cmap("tab20").colors
 
@@ -249,7 +249,7 @@ def f_segmentacoes_ip():
     """A composição RGB de Indian Pines e as regiões de cada segmentador."""
     configure_determinism()
     rgb, _ = _rgb_e_gt("IP")
-    fig, eixos = plt.subplots(1, 5, figsize=(7.8, 2.1))
+    fig, eixos = plt.subplots(1, 1 + len(SEGMENTERS), figsize=(6.4, 2.1))
     eixos[0].imshow(rgb)
     eixos[0].set_title("composição RGB\n(PCA de 3 componentes)", fontsize=8.5, color=TINTA2)
     for eixo, seg in zip(eixos[1:], SEGMENTERS):
@@ -258,12 +258,12 @@ def f_segmentacoes_ip():
         eixo.set_title(f"{NOME_SEG[seg]}\n{len(np.unique(rotulos))} regiões", fontsize=8.5, color=TINTA2)
     _sem_eixos(*eixos)
     fig.tight_layout(w_pad=0.4)
-    salvar(fig, "segmentacoes_ip")
+    salvar_figura(fig, "segmentacoes_ip")
 
 
 def f_particao_faixas():
     """Os pixels rotulados de Indian Pines divididos em 4 e em 16 faixas."""
-    dados, _ = prepare_data(ExperimentConfig(dataset="IP"))
+    dados = prepare_data(ExperimentConfig(dataset="IP"))
     fig, eixos = plt.subplots(1, 2, figsize=(5.0, 2.7))
     for eixo, n in zip(eixos, (4, 16)):
         grupo = partition_scene(dados["coords"], n)
@@ -276,7 +276,7 @@ def f_particao_faixas():
         eixo.set_title(f"$N$ = {n}", fontsize=9, color=TINTA2)
     _sem_eixos(*eixos)
     fig.tight_layout(w_pad=1.0)
-    salvar(fig, "particao_faixas")
+    salvar_figura(fig, "particao_faixas")
 
 
 # ------------------------------------------------------------- linha de base
@@ -312,7 +312,7 @@ def f_curvas_treino():
                       ha="right", fontsize=8, color=TINTA2)
     legendar(perda, 2)
     fig.tight_layout(w_pad=1.5)
-    salvar(fig, "curvas_treino")
+    salvar_figura(fig, "curvas_treino")
 
 
 def f_mapa_classificacao():
@@ -338,7 +338,7 @@ def f_mapa_classificacao():
     eixos[2].legend(handles=[Patch(color=NEUTRO, label="acerto"), Patch(color=PERDA, label="erro")],
                     ncol=2, loc="upper center", bbox_to_anchor=(0.5, -0.02), frameon=False, fontsize=7.5)
     fig.tight_layout(w_pad=0.6)
-    salvar(fig, "mapa_classificacao")
+    salvar_figura(fig, "mapa_classificacao")
 
 
 def f_matriz_confusao():
@@ -358,7 +358,7 @@ def f_matriz_confusao():
     eixo.tick_params(labelsize=7.5)
     for lado in eixo.spines.values():
         lado.set_visible(False)
-    salvar(fig, "matriz_confusao")
+    salvar_figura(fig, "matriz_confusao")
 
 
 FIGURAS = (f_segmentacoes_ip, f_particao_faixas, f_curvas_treino, f_mapa_classificacao,

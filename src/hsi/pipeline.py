@@ -10,17 +10,15 @@ from hsi.modelo import build_model
 from hsi.treino import fit, metrics, predict
 
 
-def run_experiment(config: ExperimentConfig, backend: str = "sequential",
-                   verbose: bool = False, device=None) -> dict:
+def run_experiment(config: ExperimentConfig, verbose: bool = False, device=None) -> dict:
     """Prepara os dados, treina a CNN 1D e avalia no teste.
 
     Devolve um dicionário com o modelo, os dados, o histórico do treino, as métricas
-    de teste e os tempos. `backend` diz como os dois ramos da preparação rodam
-    (ver `prepare_data`); o resultado é o mesmo em qualquer um.
+    de teste e o tempo de treino.
     """
     device = device or select_device(verbose=False)
     configure_determinism()
-    dados, tempos_preparo = prepare_data(config, backend)
+    dados = prepare_data(config)
     loaders = build_loaders(dados, config, device)
 
     seed_everything(config.seed)
@@ -34,7 +32,7 @@ def run_experiment(config: ExperimentConfig, backend: str = "sequential",
         "historico": treino["historico"], "epocas": len(treino["historico"]["loss"]),
         "tempo_treino": treino["tempo"], "motivo_parada": treino["motivo"],
         "melhor_epoca": treino["melhor_epoca"],
-        "tempos_preparo": tempos_preparo, **metrics(verdade, previsto),
+        **metrics(verdade, previsto),
     }
     if verbose:
         print(f"{resultado['epocas']} épocas ({resultado['motivo_parada']}), "

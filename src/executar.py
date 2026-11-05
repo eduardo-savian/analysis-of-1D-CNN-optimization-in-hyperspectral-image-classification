@@ -1,7 +1,7 @@
 """Roda um experimento fora do Jupyter.
 
-    .venv/bin/python src/executar.py 14 IP
-    .venv/bin/python src/executar.py 06 PU SA
+    .venv/bin/python src/executar.py 08 IP
+    .venv/bin/python src/executar.py 03 PU SA
 
 Sem cena, cada experimento usa as suas cenas padrão.
 """

@@ -1,6 +1,6 @@
-"""Experimento 14: a fusão concorrente do orientador contra a inferência em lote.
+"""Experimento 08: a fusão concorrente do orientador contra a inferência em lote.
 
-Com o mesmo modelo treinado (a configuração herdada, com SEEDS) e todos os pixels
+Com o mesmo modelo treinado (a configuração original, com SEEDS) e todos os pixels
 rotulados da cena, mede quatro arranjos:
 - "lote": segmenta e infere tudo de uma vez, com 1 e com 16 threads do PyTorch;
 - "sequencial": segmenta e percorre as posições em blocos, numa thread só;
@@ -21,22 +21,21 @@ import numpy as np
 import pandas as pd
 import torch
 
-from hsi.config import ExperimentConfig
-from hsi.dados import load_scene, pixel_table, segmenter_params
+from hsi.config import CONFIG, SEMENTE_DADOS, ExperimentConfig
+from hsi.dados import load_scene, pixel_table
 from hsi.experimentos.infra import caminho_resultado, carregar_feito, salvar
-from hsi.fusao_concorrente import executar_concorrente, executar_sequencial, warm_pool
+from hsi.paralelismo.fusao_concorrente import executar_concorrente, executar_sequencial, warm_pool
 from hsi.pipeline import run_experiment
+from hsi.segmentadores import segmenter_params
 
-THREADS = (1, 2, 4, 8, 16)
-BLOCOS = (1, 64, 1024)
+C = CONFIG["experimentos"]["08"]
+THREADS = tuple(C["threads"])
+BLOCOS = tuple(C["blocos"])
 SECOES = ("desenho", "minima")
-REPETICOES = 5
-# Com bloco 1 é uma tarefa por pixel: só Indian Pines e 3 repetições. Em Pavia e
-# Salinas seriam 43 e 54 mil tarefas por execução.
-REPETICOES_BLOCO_1 = 3
-CENAS_BLOCO_1 = ("IP",)
-# (n, bloco, seção) da execução cuja linha do tempo é gravada inteira, uma por arranjo.
-LINHA_DO_TEMPO = (4, 64, "minima")
+REPETICOES = C["repeticoes"]
+REPETICOES_BLOCO_1 = C["repeticoes_bloco_1"]
+CENAS_BLOCO_1 = tuple(C["cenas_bloco_1"])
+LINHA_DO_TEMPO = tuple(C["linha_do_tempo"])
 
 
 def _preparar(cena):
@@ -48,7 +47,7 @@ def _preparar(cena):
     cubo, gt = load_scene(cena)
     entrada = {"pixels": pixel_table(cubo, gt)[0], "forma": gt.shape,
                "segmentador": config.segmenter, "params": segmenter_params(config),
-               "seed": config.seed, "coords": dados["coords"],
+               "seed": SEMENTE_DADOS, "coords": dados["coords"],
                "espectros": np.ascontiguousarray(dados["espectros"], dtype=np.float32)}
     return modelo, entrada, dados
 
@@ -73,14 +72,14 @@ def _linha(cena, r, rep, torch_threads, dados, referencia) -> dict:
     }
 
 
-def experimento_14(*cenas: str) -> pd.DataFrame:
+def experimento_08(*cenas: str) -> pd.DataFrame:
     """Fusão concorrente: T0 segmenta enquanto T1..TN extraem e fundem."""
-    cenas = cenas or ("IP",)
-    destino = caminho_resultado("14_fusao_concorrente.csv")
+    cenas = cenas or tuple(C["cenas"])
+    destino = caminho_resultado("08_fusao_concorrente.csv")
     chaves = ("cena", "arranjo", "n", "bloco", "secao", "torch_threads", "rep")
     linhas, feitas = carregar_feito(destino, chaves)
     for cena in cenas:
-        torch.set_num_threads(16)
+        torch.set_num_threads(C["threads_treino"])
         modelo, entrada, dados = _preparar(cena)
         torch.set_num_threads(1)
         # As classes de referência são as do lote com uma thread.
@@ -98,14 +97,14 @@ def experimento_14(*cenas: str) -> pd.DataFrame:
                 if rep == 0 and r["tarefas"] and (n, bloco, secao) == LINHA_DO_TEMPO:
                     tempos = pd.DataFrame(r["tarefas"]).assign(t0_inicio=r["t0_inicio"],
                                                                t0_fim=r["t0_fim"])
-                    tempos.to_csv(caminho_resultado(f"14_linha_do_tempo_{cena}_{arranjo}.csv"),
+                    tempos.to_csv(caminho_resultado(f"08_linha_do_tempo_{cena}_{arranjo}.csv"),
                                   index=False)
                 linhas.append(linha)
             salvar(linhas, destino)
 
         n_posicoes = len(entrada["espectros"])
         blocos = [b for b in BLOCOS if b != 1 or cena in CENAS_BLOCO_1]
-        for torch_threads in (1, 16):
+        for torch_threads in C["threads_lote"]:
             torch.set_num_threads(torch_threads)
             medir("lote", 1, n_posicoes, "-", torch_threads,
                   lambda: executar_sequencial(modelo, entrada))

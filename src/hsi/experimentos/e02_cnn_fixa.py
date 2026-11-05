@@ -1,22 +1,24 @@
-"""Experimento 05: os quatro segmentadores com a mesma configuração da CNN.
+"""Experimento 02: os três segmentadores com a mesma configuração da CNN.
 
 É o desenho previsto no projeto, e ficou como contraexemplo: com a CNN fixa, a
 comparação mede o quanto essa configuração combina com cada segmentador, e não a qualidade
-do segmentador. O experimento 06 refaz a comparação com a CNN ajustada para cada um.
+do segmentador. O experimento 03 refaz a comparação com a CNN ajustada para cada um.
 
-Treino com os 85% do original, até 60 épocas e parada após 10 sem melhora,
+Treino com os 85% do original, até 200 épocas e parada após 10 sem melhora,
 como na linha de base; 5 sementes.
 """
 
 import numpy as np
 import pandas as pd
 
-from hsi.config import SEGMENTERS, ExperimentConfig
-from hsi.dados import SEGMENTER_PARAMS, apply_pca, load_scene, pixel_table, rgb_composite, segment
+from hsi.config import CONFIG, SEGMENTERS, ExperimentConfig
+from hsi.dados import apply_pca, load_scene, pixel_table
 from hsi.experimentos.infra import caminho_resultado
 from hsi.pipeline import run_experiment
+from hsi.segmentadores import SEGMENTER_PARAMS, rgb_composite, segment
 
-SEMENTES = (11, 29, 42, 73, 101)
+C = CONFIG["experimentos"]["02"]
+SEMENTES = tuple(C["sementes"])
 
 
 def qualidade_segmentacao(cena: str, segmentador: str) -> dict:
@@ -32,9 +34,9 @@ def qualidade_segmentacao(cena: str, segmentador: str) -> dict:
     return {"regioes": len(np.unique(regioes)), "pureza": dominantes / len(classes)}
 
 
-def experimento_05(*cenas: str) -> pd.DataFrame:
+def experimento_02(*cenas: str) -> pd.DataFrame:
     """Segmentadores com a CNN fixa (contraexemplo)."""
-    cenas = cenas or ("IP", "PU", "SA")
+    cenas = cenas or tuple(C["cenas"])
     linhas = []
     for cena in cenas:
         print(f"\n### {cena}")
@@ -51,7 +53,7 @@ def experimento_05(*cenas: str) -> pd.DataFrame:
                   f"regiões {q['regioes']:>5}  pureza {q['pureza']:.4f}", flush=True)
 
     quadro = pd.DataFrame(linhas)
-    destino = caminho_resultado("05_impacto_segmentadores.csv")
+    destino = caminho_resultado("02_impacto_segmentadores.csv")
     quadro.to_csv(destino, index=False)
     print(f"\nCSV: {destino}")
     return quadro

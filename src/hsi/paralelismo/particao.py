@@ -129,24 +129,20 @@ def run_experiment_particionado(config, n: int, modo: str = "independente",
     if modo == "replicado" and executor == "process":
         raise ValueError("o modo replicado com processos exigiria enviar o modelo a cada um")
     configure_determinism()
-    inicio = time.perf_counter()
-    dados, tempos_preparo = prepare_data(config, "thread")
-    tempo_preparo = time.perf_counter() - inicio
+    dados = prepare_data(config, "thread")
     grupo = partition_scene(dados["coords"], n, particao, config.seed)
     pedacos = [slice_data(dados, grupo == k) for k in range(n)]
 
-    tempo_treino_unico, modelo = 0.0, None
+    modelo = None
     if modo == "replicado":
         # Treina uma vez com tudo, no dispositivo padrão, e desce o modelo para a CPU,
         # onde todas as partições inferem.
-        inicio = time.perf_counter()
         device = select_device(verbose=False)
         loaders = build_loaders(dados, config, device)
         seed_everything(config.seed)
         modelo, perda, otimizador = build_model(config, dados, device)
         fit(modelo, loaders, perda, otimizador, config, device)
         modelo = modelo.to(CPU)
-        tempo_treino_unico = time.perf_counter() - inicio
 
     tarefas = [(k, pedacos[k], config, modelo) for k in range(n)]
     pool_frio = pool is None and executor != "sequencial"
@@ -166,16 +162,12 @@ def run_experiment_particionado(config, n: int, modo: str = "independente",
     tempos = [s[3] for s in saidas]
     return {
         **metrics(verdade, previsto),
-        "tempo_preparo": tempo_preparo, "tempo_segmentacao": tempos_preparo["espacial"],
-        "tempo_treino_unico": tempo_treino_unico,
         # O bloco concorrente: treino e inferência no modo independente, só a
         # inferência no replicado.
         "tempo_paralelo": tempo_paralelo,
-        "tempos_por_particao": tempos,
         # Com executor concorrente cada tempo já foi medido sob disputa; o speedup
         # honesto é contra a parede do executor sequencial, não soma ÷ parede.
         "soma_partes": sum(tempos),
         "teto": sum(tempos) / max(tempos),
         "overhead": tempo_paralelo - max(tempos),
-        "amostras_por_particao": [len(p["rotulos"]) for p in pedacos],
     }
