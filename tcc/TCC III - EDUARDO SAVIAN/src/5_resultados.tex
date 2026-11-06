@@ -86,7 +86,7 @@ Com o mesmo número de regiões, o SEEDS tem a maior pureza nas três cenas, e o
     \label{tab:estruturaSeg}
 \end{table}
 
-A \autoref{tab:segmentadores} reúne os três segmentadores com a CNN fixa na configuração original (experimento 02) e com a CNN otimizada para cada um (experimento 03), com 5 sementes e o treino completo. Em Indian Pines, com a CNN otimizada, o SEEDS supera o LSC por 1,72 ponto de OA, acima do limiar de 1,52, e por 1,98 de Kappa, acima de 1,74; a diferença de AA, de 4,67 pontos, fica dentro do limiar de 4,85. A busca manteve a configuração padrão dos dois segmentadores e escolheu os mesmos hiperparâmetros da CNN (\autoref{tab:vencedores}); como só o segmentador difere, a diferença vem da segmentação, e a ordem entre os dois é a mesma da pureza. A validação do vencedor fica 1,6 ponto acima da OA de teste com o SEEDS e 2,4 com o LSC, efeito de escolher o maior de 16 valores de validação.
+A \autoref{tab:segmentadores} e a \autoref{fig:segmentadores} reúnem os três segmentadores com a CNN fixa na configuração original (experimento 02) e com a CNN otimizada para cada um (experimento 03), com 5 sementes e o treino completo. Em Indian Pines, com a CNN otimizada, o SEEDS supera o LSC por 1,72 ponto de OA, acima do limiar de 1,52, e por 1,98 de Kappa, acima de 1,74; a diferença de AA, de 4,67 pontos, fica dentro do limiar de 4,85. A busca manteve a configuração padrão dos dois segmentadores e escolheu os mesmos hiperparâmetros da CNN (\autoref{tab:vencedores}); como só o segmentador difere, a diferença vem da segmentação, e a ordem entre os dois é a mesma da pureza. O Watershed fica 0,89 ponto de OA abaixo do SEEDS, dentro do limiar de 1,92, e o mesmo vale para AA e Kappa; com o mesmo número de regiões e menor pureza, ele empata em acurácia e segmenta cerca de 28 vezes mais rápido. Seu vencedor manteve a taxa de 0,001 e trocou o \textit{weight decay}. A validação do vencedor fica de 1,5 a 2,4 pontos acima da OA de teste, efeito de escolher o maior de 16 valores de validação.
 
 \begin{table}[H]
     \centering
@@ -101,14 +101,14 @@ A \autoref{tab:segmentadores} reúne os três segmentadores com a CNN fixa na co
         \multicolumn{5}{|l|}{\cellcolor[HTML]{EFEFEF}\textbf{Indian Pines}} \\ \hline
         SEEDS & -- & 0,9324 $\pm$ 0,0062 & 0,9361 $\pm$ 0,0162 & 0,9229 $\pm$ 0,0070 \\
         LSC & -- & 0,9152 $\pm$ 0,0045 & 0,8895 $\pm$ 0,0181 & 0,9031 $\pm$ 0,0052 \\
-        Watershed & -- & -- & -- & -- \\ \hline
+        Watershed & -- & 0,9235 $\pm$ 0,0073 & 0,9190 $\pm$ 0,0290 & 0,9128 $\pm$ 0,0083 \\ \hline
         \multicolumn{5}{|l|}{\cellcolor[HTML]{EFEFEF}\textbf{University of Pavia}} \\ \hline
         SEEDS, LSC, Watershed & -- & -- & -- & -- \\ \hline
         \multicolumn{5}{|l|}{\cellcolor[HTML]{EFEFEF}\textbf{Salinas Valley}} \\ \hline
         SEEDS, LSC, Watershed & -- & -- & -- & -- \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Média e desvio padrão entre 5 sementes, treino completo. \pendente{experimento 02: coluna da CNN fixa; experimento 03: Watershed em Indian Pines e as demais cenas}}
+    \caption*{Fonte: Elaborada pelo autor. Média e desvio padrão entre 5 sementes, treino completo. \pendente{experimento 02: coluna da CNN fixa; experimento 03: University of Pavia e Salinas Valley}}
     \label{tab:segmentadores}
 \end{table}
 
@@ -125,19 +125,29 @@ A \autoref{tab:segmentadores} reúne os três segmentadores com a CNN fixa na co
         \multicolumn{9}{|l|}{\cellcolor[HTML]{EFEFEF}\textbf{Indian Pines}} \\ \hline
         SEEDS & 0,0003 & 0,20 & 0 & 64 & 15 & 350 sp., 200 it., \textit{prior} 2 & 0,9480 & 69,6 \\
         LSC & 0,0003 & 0,20 & 0 & 64 & 15 & 16 px, razão 0,075 & 0,9389 & 82,6 \\
-        Watershed & -- & -- & -- & -- & -- & -- & -- & -- \\ \hline
+        Watershed & 0,001 & 0,20 & $10^{-5}$ & 64 & 15 & 116 marcadores & 0,9389 & 46,4 \\ \hline
         \multicolumn{9}{|l|}{\cellcolor[HTML]{EFEFEF}\textbf{University of Pavia} e \textbf{Salinas Valley}} \\ \hline
         SEEDS, LSC, Watershed & -- & -- & -- & -- & -- & -- & -- & -- \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Taxa: taxa de aprendizado; WD: \textit{weight decay}; PCA: componentes; sp.: superpixels pedidos; it.: iterações. Validação: maior acurácia de validação entre os 16 \textit{trials}. Épocas: média das épocas treinadas no retreino com 5 sementes. \pendente{experimento 03: Watershed em Indian Pines e as demais cenas, uma linha por segmentador}}
+    \caption*{Fonte: Elaborada pelo autor. Taxa: taxa de aprendizado; WD: \textit{weight decay}; PCA: componentes; sp.: superpixels pedidos; it.: iterações. Validação: maior acurácia de validação entre os 16 \textit{trials}. Épocas: média das épocas treinadas no retreino com 5 sementes. \pendente{experimento 03: University of Pavia e Salinas Valley, uma linha por segmentador}}
     \label{tab:vencedores}
 \end{table}
+
+\begin{figure}[H]
+    \centering
+    \captionsetup{justification=centering}
+    \caption{OA de teste com a CNN otimizada para cada segmentador (experimento 03) e tempo de cada segmentação}
+    \includegraphics[width=\textwidth]{assets/resultados/segmentadores.pdf}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor. Barras de erro: desvio padrão entre 5 sementes. Tempo em escala logarítmica, sem o PCA(3) e a composição RGB. \pendente{experimento 03: University of Pavia e Salinas Valley no painel da esquerda}}
+    \label{fig:segmentadores}
+\end{figure}
 
 \section{Automação de Hiperparâmetros}
 \label{sec:resHPO}
 
-A \autoref{tab:estrategias} compara a busca em grade e a Otimização Bayesiana com o mesmo orçamento de 27 \textit{trials}, com três tetos de épocas por \textit{trial} e 3 sementes, em Indian Pines e com 10\% do treino (experimento 04, 486 \textit{trials}); suas acurácias não se comparam às do treino completo. A tabela mostra se as estratégias se separam além de duas vezes o desvio combinado em cada orçamento, quanto o teto de épocas acrescenta à validação e quanto treino cada busca consome.
+A \autoref{tab:estrategias} compara a busca em grade e a Otimização Bayesiana com o mesmo orçamento de 27 \textit{trials}, com três tetos de épocas por \textit{trial} e 3 sementes, em Indian Pines e com 10\% do treino (experimento 04, 486 \textit{trials}). A grade avalia os mesmos 27 pontos em cada semente, que muda só o treino; a bayesiana usa a semente também para sortear os \textit{trials} iniciais. Cada \textit{trial} para ainda se a validação atingir 0,95. Como o treino é reduzido, essas acurácias não se comparam às do treino completo. A tabela traz, por teto e estratégia, a maior validação da busca, a OA de teste do vencedor e as épocas treinadas.
 
 \begin{table}[H]
     \centering
@@ -148,22 +158,24 @@ A \autoref{tab:estrategias} compara a busca em grade e a Otimização Bayesiana 
         \rowcolor[HTML]{C0C0C0}
         \textbf{Teto} & \textbf{Estratégia} & \textbf{Maior validação} & \textbf{OA de teste do vencedor} & \textbf{Épocas treinadas} \\
         \hline
-        10 épocas & Grade & -- & -- & -- \\
-                  & Bayesiana & -- & -- & -- \\
+        10 épocas & Grade & 0,7265 $\pm$ 0,0108 & 0,7261 $\pm$ 0,0082 & 267 \\
+                  & Bayesiana & 0,7252 $\pm$ 0,0090 & 0,7304 $\pm$ 0,0144 & 264 \\
         \hline
-        40 épocas & Grade & -- & -- & -- \\
-                  & Bayesiana & -- & -- & -- \\
+        40 épocas & Grade & 0,7980 $\pm$ 0,0128 & 0,7828 $\pm$ 0,0083 & 1.054 \\
+                  & Bayesiana & 0,8188 $\pm$ 0,0135 & 0,8253 $\pm$ 0,0075 & 1.023 \\
         \hline
-        200 épocas & Grade & -- & -- & -- \\
-                   & Bayesiana & -- & -- & -- \\
+        200 épocas & Grade & 0,8075 $\pm$ 0,0066 & 0,7971 $\pm$ 0,0018 & 1.563 \\
+                   & Bayesiana & 0,8270 $\pm$ 0,0230 & 0,8119 $\pm$ 0,0198 & 1.833 \\
         \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Média e desvio entre 3 sementes; épocas treinadas: soma por busca. \pendente{experimento 04: valores por teto e estratégia}}
+    \caption*{Fonte: Elaborada pelo autor. Média e desvio padrão entre 3 sementes, 10\% do treino, 27 \textit{trials} por busca. Épocas treinadas: soma dos \textit{trials} de uma busca, média entre as sementes}
     \label{tab:estrategias}
 \end{table}
 
-O experimento 05 treina, com as mesmas 5 sementes em Indian Pines e o treino completo, a configuração original e a vencedora do experimento 03 de cada segmentador (\autoref{tab:impactoHPO}). A diferença é medida sobre a configuração original com o SEEDS, a de \citeonline{Souza2023} com a CNN do projeto. A vencedora com o SEEDS reduz a taxa de aprendizado para 0,0003 e o \textit{dropout} para 0,2, dobra o lote e usa 15 componentes; como as mudanças vieram juntas, o efeito de cada uma não foi isolado.
+Com 10 épocas por \textit{trial}, as duas estratégias empatam. Com 40 e 200, a bayesiana fica cerca de 2 pontos acima na validação, mas a diferença não passa do limiar (3,7 e 4,8 pontos), e as estratégias não se separam de forma afirmável. O teto de épocas pesa mais que a estratégia: de 10 para 40 épocas a validação sobe de 7 a 9 pontos, e de 40 para 200 só 1 ponto, com 50\% a 80\% mais épocas treinadas. Entre os eixos, o \textit{dropout} (10,1 pontos de amplitude na validação média) e a taxa de aprendizado (7,2) são os de maior efeito, à frente do PCA (3,4), do lote (2,9) e do \textit{weight decay} (1,5), o que confirma a escolha dos eixos da grade.
+
+O experimento 05 treina, com as mesmas 5 sementes em Indian Pines e o treino completo, a configuração original e a vencedora do experimento 03 de cada segmentador (\autoref{tab:impactoHPO} e \autoref{fig:hpo}). A configuração original é a de \citeonline{Souza2023}, com a CNN do projeto, e a diferença compara as duas configurações com o mesmo segmentador. A vencedora com o SEEDS reduz a taxa de aprendizado para 0,0003 e o \textit{dropout} para 0,2, dobra o lote e usa 15 componentes; como as mudanças vieram juntas, o efeito de cada uma não foi isolado. Com o SEEDS, a busca acrescenta 2,55 pontos de OA (de 0,9069 para 0,9324), acima do limiar de 2,03, e 2,92 de Kappa, acima de 2,31; com o Watershed, 3,25 pontos de OA, acima de 2,81. Com o LSC, o ganho de 1,14 fica dentro do limiar. Na AA, nenhum ganho passa do limiar, que fica entre 5,4 e 7,6 pontos por causa das classes com 2 a 4 pixels de teste. A configuração otimizada também treina por mais épocas: 69,6 contra 39,0 com o SEEDS, efeito da taxa menor.
 
 \begin{table}[H]
     \centering
@@ -172,19 +184,29 @@ O experimento 05 treina, com as mesmas 5 sementes em Indian Pines e o treino com
     \begin{tabular}{|l|c|c|c|c|}
         \hline
         \rowcolor[HTML]{C0C0C0}
-        \textbf{Segmentador} & \textbf{OA original} & \textbf{OA otimizada} & \textbf{Diferença (pp)} & \textbf{Desvio comb. (pp)} \\
+        \textbf{Segmentador} & \textbf{OA original} & \textbf{OA otimizada} & \textbf{Diferença (pp)} & \textbf{Limiar (pp)} \\
         \hline
-        SEEDS & -- & -- & -- & -- \\
+        SEEDS & 0,9069 $\pm$ 0,0081 & 0,9324 $\pm$ 0,0062 & +2,55 & 2,03 \\
         \hline
-        LSC & -- & -- & -- & -- \\
+        LSC & 0,9038 $\pm$ 0,0060 & 0,9152 $\pm$ 0,0045 & +1,14 & 1,49 \\
         \hline
-        Watershed & -- & -- & -- & -- \\
+        Watershed & 0,8910 $\pm$ 0,0120 & 0,9235 $\pm$ 0,0073 & +3,25 & 2,81 \\
         \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Diferença e desvio combinado em relação à configuração original com o SEEDS. \pendente{experimento 05: OA, AA e Kappa das duas configurações por segmentador}}
+    \caption*{Fonte: Elaborada pelo autor. Média e desvio padrão entre 5 sementes. Diferença: otimizada menos original, com o mesmo segmentador. Limiar: duas vezes o desvio combinado das duas configurações}
     \label{tab:impactoHPO}
 \end{table}
+
+\begin{figure}[H]
+    \centering
+    \captionsetup{justification=centering}
+    \caption{OA de teste das configurações original e otimizada (experimento 05) e maior validação por teto de épocas (experimento 04), em Indian Pines}
+    \includegraphics[width=\textwidth]{assets/resultados/hpo.pdf}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor. Barras de erro: desvio padrão entre 5 sementes (esquerda) e 3 sementes (direita)}
+    \label{fig:hpo}
+\end{figure}
 
 \section{Paralelismo}
 \label{sec:resParalelismo}
@@ -282,4 +304,4 @@ O \autoref{qua:verificacao} reúne a evidência de cada requisito.
 \section{Discussão dos Resultados}
 \label{sec:resDiscussao}
 
-O ganho de cada otimização é limitado pela fração do trabalho que ela alcança: o paralelismo entre os ramos atua sobre o pré-processamento, a fusão concorrente sobre a inferência, ambos com teto dado pela segmentação, e só a partição da cena alcança o treino, que domina a execução. Medir o paralelismo na CPU é coerente com o trabalho de referência, em que a inferência da CNN 1D com SEEDS foi mais rápida em uma CPU de 2 núcleos do que em uma GPU T4 nas três cenas (273 contra 426 ms em Indian Pines) \cite{Souza2023}: com cerca de 166 mil parâmetros e 30 valores por pixel, há pouco cálculo por lote para ocupar a GPU. Nos hiperparâmetros, a sequência medida em Indian Pines vai da CNN de \citeonline{Souza2023} na configuração original (OA 0,8960) à CNN do projeto na mesma configuração (0,9142) e à configuração otimizada com o SEEDS (0,9324 $\pm$ 0,0062), com os menores valores de taxa de aprendizado e de \textit{dropout} do espaço. Nos segmentadores, o SEEDS tem a maior pureza e, em Indian Pines, supera o LSC de forma afirmável em OA e Kappa, enquanto o Watershed segmenta de 28 a 62 vezes mais rápido. O não determinismo do LSC só foi encontrado porque cada execução é reprodutível. \pendente{experimentos 02 a 08: estratégia de maior \textit{speedup} diante do seu teto, ganho afirmável sobre a configuração original e alternativa ao SEEDS em alguma cena}
+O ganho de cada otimização é limitado pela fração do trabalho que ela alcança: o paralelismo entre os ramos atua sobre o pré-processamento, a fusão concorrente sobre a inferência, ambos com teto dado pela segmentação, e só a partição da cena alcança o treino, que domina a execução. Medir o paralelismo na CPU é coerente com o trabalho de referência, em que a inferência da CNN 1D com SEEDS foi mais rápida em uma CPU de 2 núcleos do que em uma GPU T4 nas três cenas (273 contra 426 ms em Indian Pines) \cite{Souza2023}: com cerca de 166 mil parâmetros e 30 valores por pixel, há pouco cálculo por lote para ocupar a GPU. Nos hiperparâmetros, a sequência medida em Indian Pines vai da CNN de \citeonline{Souza2023} na configuração original (OA 0,8960) à CNN do projeto na mesma configuração (0,9142) e à configuração otimizada com o SEEDS (0,9324 $\pm$ 0,0062), com os menores valores de taxa de aprendizado e de \textit{dropout} do espaço. Nos segmentadores, o SEEDS tem a maior pureza e, em Indian Pines, supera o LSC de forma afirmável em OA e Kappa, enquanto o Watershed segmenta de 28 a 62 vezes mais rápido. O não determinismo do LSC só veio à tona graças à reprodutibilidade de cada execução. \pendente{experimentos 02 a 08: estratégia de maior \textit{speedup} diante do seu teto, ganho afirmável sobre a configuração original e alternativa ao SEEDS em alguma cena}

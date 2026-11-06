@@ -8,7 +8,7 @@ Este capítulo descreve a implementação do projeto do \autoref{cap:proj}: o am
 
 A implementação usa Python 3.12, PyTorch 2.13 com CUDA 13.0 \cite{Paszke2019PyTorch}, scikit-learn para o PCA e as métricas, OpenCV com o módulo de contribuições para a segmentação e Optuna para a Otimização Bayesiana \cite{Akiba2019Optuna}, com as versões fixadas em um arquivo de requisitos versionado. Os experimentos rodaram em um computador pessoal com GPU NVIDIA RTX 5070 Laptop, 32 núcleos lógicos e 15,8 GB de RAM, sob WSL2. O notebook de \citeonline{Souza2023}, com estado global compartilhado entre células, foi reorganizado em um pacote Python, com um módulo por etapa do fluxo, um por pilar de otimização e um por experimento (01 a 08). O notebook apenas chama o pacote, e as variáveis de execução (componentes do PCA, parâmetros dos segmentadores, espaço de busca e cenas, sementes e orçamentos de cada experimento) ficam em um único arquivo de configuração versionado. Os experimentos longos gravam cada configuração concluída e podem ser retomados.
 
-Os dados de entrada da rede são idênticos aos do notebook executado no Google Colab. O PCA usa o algoritmo das versões do scikit-learn anteriores à 1.5, porque o atual decide o sinal das componentes de outra forma, o que inverte um canal da composição RGB e muda a segmentação em Indian Pines e University of Pavia; a divisão repete as sementes e o sorteio do notebook, inclusive a segunda divisão, estratificada pelos rótulos em \textit{one-hot}. Assim, as composições RGB, as segmentações e os conjuntos de treino, validação e teste são os do notebook. Diferem do original o framework (PyTorch, e não TensorFlow/Keras), a arquitetura, que é a do projeto em todos os experimentos, exceto na comparação da linha de base, e o treino, com regra de parada e teto de épocas próprios (\autoref{subsec:desTreino}). A execução é determinística: as sementes são fixadas, o cuDNN não escolhe algoritmos automaticamente, a precisão TF32 é desativada, e o OpenCV usa uma thread (\autoref{sec:resOrganizacao}).
+Os dados de entrada da rede são idênticos aos do notebook executado no Google Colab. O PCA usa o algoritmo das versões do scikit-learn anteriores à 1.5, já que o atual decide o sinal das componentes de outra forma, o que inverte um canal da composição RGB e muda a segmentação em Indian Pines e University of Pavia; a divisão repete as sementes e o sorteio do notebook, inclusive a segunda divisão, estratificada pelos rótulos em \textit{one-hot}. Assim, as composições RGB, as segmentações e os conjuntos de treino, validação e teste são os do notebook. Diferem do original o framework (PyTorch, e não TensorFlow/Keras), a arquitetura, que é a do projeto em todos os experimentos, exceto na comparação da linha de base, e o treino, com regra de parada e teto de épocas próprios (\autoref{subsec:desTreino}). A execução é determinística: as sementes são fixadas, o cuDNN não escolhe algoritmos automaticamente, a precisão TF32 é desativada, e o OpenCV usa uma thread (\autoref{sec:resOrganizacao}).
 
 \section{Fluxo de Execução}
 \label{sec:fluxo}
@@ -69,11 +69,53 @@ O treino usa a entropia cruzada e o Adam e para após 10 épocas sem que a acur�
 \section{Paralelismo}
 \label{sec:desParalelismo}
 
-A primeira estratégia executa os dois ramos do pré-processamento em duas threads, que avançam apesar do GIL porque o PCA e o segmentador são código nativo que o libera.
+Antes das três estratégias, o treino já é paralelo dentro de cada operação: cada lote vai inteiro para a GPU, que calcula as convoluções e as camadas densas de todos os pixels do lote ao mesmo tempo (\autoref{fig:esqGPU}). Nos esquemas desta seção, as durações são ilustrativas; os tempos medidos estão no \autoref{cap:resultados}.
 
-A segunda divide a cena em $N$ faixas horizontais com número semelhante de pixels rotulados, depois de segmentar a cena inteira uma única vez. No modo \textit{independente}, cada partição treina e testa o seu modelo; no \textit{replicado}, um modelo treinado com a cena inteira infere as partições. As partições executam na CPU, em sequência, em threads ou em processos, com uma thread do PyTorch cada. Os processos são criados por \textit{spawn}, porque o PyTorch interrompe com erro a cópia de processo feita depois de o cálculo de gradientes rodar em threads \cite{PyTorchMultiprocessing}, e ficam em um pool reutilizável, aquecido fora da medição; um pool que não caberia na memória livre com 25\% de folga, a 481 MB por processo, é recusado.
+\begin{figure}[H]
+    \centering
+    \captionsetup{justification=centering}
+    \caption{Um lote processado pixel a pixel e na GPU}
+    \includegraphics[width=0.72\textwidth]{assets/desenvolvimento/nivel0_gpu.pdf}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor. Esquema com 8 pixels; os lotes do trabalho têm de 32 a 128}
+    \label{fig:esqGPU}
+\end{figure}
 
-A terceira, a fusão concorrente, realiza na inferência o esquema do projeto (\autoref{fig:paralelizacao}): uma thread T0 executa o ramo espacial e publica o mapa de segmentação, enquanto um pool de threads calcula as convoluções de blocos de 1, 64 ou 1.024 posições, lê o identificador de cada posição e faz a concatenação. Só a concatenação espera o mapa, por uma variável de condição (\autoref{sec:concorrencia}). A seção crítica tem duas extensões: \textbf{como no esquema}, em que T0 detém a trava durante a segmentação e cada tarefa durante a concatenação, e \textbf{mínima}, em que a trava só publica o mapa e lê os identificadores. Uma \textit{variante desacoplada} enfileira todas as convoluções antes das fusões. Cada thread do pool fixa o número de threads do PyTorch, que de outro modo subiria às 32 do OpenMP e disputaria os mesmos núcleos.
+A primeira estratégia executa os dois ramos do pré-processamento em duas threads. Elas avançam juntas mesmo com o GIL, pois o PCA e o segmentador são código nativo, que libera essa trava enquanto calcula (\autoref{fig:esqRamos}).
+
+\begin{figure}[H]
+    \centering
+    \captionsetup{justification=centering}
+    \caption{Os ramos do pré-processamento em sequência e em duas threads}
+    \includegraphics[width=0.8\textwidth]{assets/desenvolvimento/nivel1_ramos.pdf}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor}
+    \label{fig:esqRamos}
+\end{figure}
+
+A segunda divide a cena em $N$ faixas horizontais com número semelhante de pixels rotulados, depois de segmentar a cena inteira uma única vez. No modo \textit{independente}, cada partição treina e testa o seu modelo; no \textit{replicado}, um modelo treinado com a cena inteira infere as partições. As partições executam na CPU, em sequência, em threads ou em processos, com uma thread do PyTorch cada. Os processos são criados por \textit{spawn}, uma vez que o PyTorch interrompe com erro a cópia de processo feita depois de o cálculo de gradientes rodar em threads \cite{PyTorchMultiprocessing}, e ficam em um pool reutilizável, aquecido fora da medição; um pool que não caberia na memória livre com 25\% de folga, a 481 MB por processo, é recusado. A \autoref{fig:esqParticao} compara os executores no modo independente, com o pool criado dentro da medição (frio) e antes dela (quente).
+
+\begin{figure}[H]
+    \centering
+    \captionsetup{justification=centering}
+    \caption{A cena em quatro faixas e o treino delas em cada executor}
+    \includegraphics[width=0.7\textwidth]{assets/desenvolvimento/nivel2_particao.pdf}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor}
+    \label{fig:esqParticao}
+\end{figure}
+
+A terceira, a fusão concorrente, realiza na inferência o esquema do projeto (\autoref{fig:paralelizacao}): uma thread T0 executa o ramo espacial e publica o mapa de segmentação, enquanto um pool de threads calcula as convoluções de blocos de 1, 64 ou 1.024 posições, lê o identificador de cada posição e faz a concatenação. Só a concatenação espera o mapa, por uma variável de condição (\autoref{sec:concorrencia}). A seção crítica tem duas extensões: \textbf{como no esquema}, em que T0 detém a trava durante a segmentação e cada tarefa durante a concatenação, e \textbf{mínima}, em que a trava só publica o mapa e lê os identificadores. Uma \textit{variante desacoplada} enfileira todas as convoluções antes das fusões. Cada thread do pool fixa o número de threads do PyTorch, que de outro modo subiria às 32 do OpenMP e disputaria os mesmos núcleos. A \autoref{fig:esqFusao} mostra o ganho possível: o tempo total nunca fica abaixo do da segmentação, e o que se ganha é esconder as convoluções atrás dela.
+
+\begin{figure}[H]
+    \centering
+    \captionsetup{justification=centering}
+    \caption{Inferência em lote e fusão concorrente}
+    \includegraphics[width=0.85\textwidth]{assets/desenvolvimento/nivel3_fusao.pdf}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor}
+    \label{fig:esqFusao}
+\end{figure}
 
 \section{Automação de Hiperparâmetros}
 \label{sec:desHPO}
@@ -138,9 +180,9 @@ O plano de verificação (\autoref{tab:descricaoExperimentos}) foi desdobrado no
 A implementação seguiu o projeto quanto ao PyTorch, à arquitetura, aos três segmentadores, às duas estratégias de busca e à divisão dos dados, com os desvios abaixo.
 
 \begin{itemize}[leftmargin=*, itemsep=0pt, topsep=2pt]
-    \item \textbf{Busca}: o Optuna executa as duas estratégias, porque o seu processo gaussiano aceita eixos categóricos, como o segmentador, e os \textit{trials} rodam em sequência em uma máquina; a grade cobre 27 pontos, e não os 2.187; a arquitetura e o Adam ficam fixos, e as épocas são decididas pela parada antecipada.
-    \item \textbf{Fusão}: mantido o identificador numérico do original, no lugar da codificação \textit{one-hot}, porque a fusão faz parte da configuração de referência; nenhuma configuração sem fusão é treinada, e a vantagem sobre a rede puramente espectral (RF03) é a reportada por \citeonline{Souza2023}.
+    \item \textbf{Busca}: o Optuna executa as duas estratégias, visto que o seu processo gaussiano aceita eixos categóricos, como o segmentador; a grade cobre 27 pontos, e não os 2.187; a arquitetura e o Adam ficam fixos, e as épocas são decididas pela parada antecipada.
+    \item \textbf{Fusão}: mantido o identificador numérico do original, no lugar da codificação \textit{one-hot}, pois a fusão faz parte da configuração de referência; nenhuma configuração sem fusão é treinada, e a vantagem sobre a rede puramente espectral (RF03) é a reportada por \citeonline{Souza2023}.
     \item \textbf{Treino e ambiente}: parada pela acurácia de validação e teto de 200 épocas; GPU local, no lugar do Google Colab ou de HPC.
-    \item \textbf{Campanha}: a otimização isolada de cada componente deu lugar à comparação dos segmentadores com a CNN fixa (02) e otimizada (03); os experimentos 04 a 07 rodam só em Indian Pines, a cena de menor acurácia; a linha de base usa uma semente; e os testes de significância deram lugar ao critério de duas vezes o desvio combinado.
-    \item \textbf{Paralelismo}: threads e processos na CPU, no lugar da segmentação em processo e da CNN na GPU, porque a comparação entre executores exige o mesmo dispositivo.
+    \item \textbf{Campanha}: a otimização isolada de cada componente deu lugar à comparação dos segmentadores com a CNN fixa (02) e otimizada (03); os experimentos 04 a 07 rodam só em Indian Pines, a cena de menor acurácia; o 04 treina com 10\% dos 85\% de treino, pelo custo dos 486 \textit{trials}; a linha de base usa uma semente; e os testes de significância deram lugar ao critério de duas vezes o desvio combinado.
+    \item \textbf{Paralelismo}: threads e processos na CPU, no lugar da segmentação em processo e da CNN na GPU: a comparação entre executores exige o mesmo dispositivo.
 \end{itemize}
