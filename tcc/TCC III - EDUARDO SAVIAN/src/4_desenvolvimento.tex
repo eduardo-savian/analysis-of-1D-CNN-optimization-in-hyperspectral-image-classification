@@ -6,9 +6,9 @@ Este capítulo descreve a implementação do projeto do \autoref{cap:proj}: o am
 \section{Ambiente e Organização do Código}
 \label{sec:ambiente}
 
-A implementação usa Python 3.12, PyTorch 2.13 com CUDA 13.0 \cite{Paszke2019PyTorch}, scikit-learn para o PCA e as métricas, OpenCV com o módulo de contribuições para a segmentação e Optuna para a Otimização Bayesiana \cite{Akiba2019Optuna}, com as versões fixadas em um arquivo de requisitos versionado. Os experimentos rodaram em um computador pessoal com GPU NVIDIA RTX 5070 Laptop, 32 núcleos lógicos e 15,8 GB de RAM, sob WSL2. O notebook de \citeonline{Souza2023}, com estado global compartilhado entre células, foi reorganizado em um pacote Python, com um módulo por etapa do fluxo, um por pilar de otimização e um por experimento (01 a 08). O notebook apenas chama o pacote, e as variáveis de execução (componentes do PCA, parâmetros dos segmentadores, espaço de busca e cenas, sementes e orçamentos de cada experimento) ficam em um único arquivo de configuração versionado. Os experimentos longos gravam cada configuração concluída e podem ser retomados.
+A implementação usa Python 3.12, PyTorch 2.13 com CUDA 13.0 \cite{Paszke2019PyTorch}, scikit-learn para o PCA e as métricas, OpenCV com o módulo de contribuições para a segmentação e Optuna para a Otimização Bayesiana \cite{Akiba2019Optuna}, com as versões fixadas em um arquivo de requisitos versionado. Os experimentos rodaram em um computador pessoal com GPU NVIDIA RTX 5070 Laptop, 32 núcleos lógicos e 15,8 GB de RAM, sob WSL2. O notebook de \citeonline{Souza2023}, com estado global compartilhado entre células, foi reorganizado em um pacote Python, com um módulo por etapa do fluxo, um por pilar de otimização e um por experimento (01 a 08). O notebook apenas chama o pacote, e as variáveis de execução (componentes do PCA, parâmetros dos segmentadores, espaço de busca e cenas, sementes e orçamentos de cada experimento) ficam em um único arquivo de configuração versionado.
 
-Os dados de entrada da rede são idênticos aos do notebook executado no Google Colab. O PCA usa o algoritmo das versões do scikit-learn anteriores à 1.5, já que o atual decide o sinal das componentes de outra forma, o que inverte um canal da composição RGB e muda a segmentação em Indian Pines e University of Pavia; a divisão repete as sementes e o sorteio do notebook, inclusive a segunda divisão, estratificada pelos rótulos em \textit{one-hot}. Assim, as composições RGB, as segmentações e os conjuntos de treino, validação e teste são os do notebook. Diferem do original o framework (PyTorch, e não TensorFlow/Keras), a arquitetura, que é a do projeto em todos os experimentos, exceto na comparação da linha de base, e o treino, com regra de parada e teto de épocas próprios (\autoref{subsec:desTreino}). A execução é determinística: as sementes são fixadas, o cuDNN não escolhe algoritmos automaticamente, a precisão TF32 é desativada, e o OpenCV usa uma thread (\autoref{sec:resOrganizacao}).
+Os dados de entrada da rede são idênticos aos do notebook executado no Google Colab. O PCA usa o algoritmo das versões do scikit-learn anteriores à 1.5, já que o atual decide o sinal das componentes de outra forma, o que inverte um canal da composição RGB e muda a segmentação em Indian Pines e University of Pavia; a divisão repete as sementes e o sorteio do notebook, inclusive a segunda divisão, estratificada pelos rótulos em \textit{one-hot}. Diferem do original o framework (PyTorch, e não TensorFlow/Keras), a arquitetura, que é a do projeto em todos os experimentos, exceto na comparação da linha de base, e o treino, com regra de parada e teto de épocas próprios (\autoref{subsec:desTreino}). A execução é determinística: as sementes são fixadas, o cuDNN não escolhe algoritmos automaticamente, a precisão TF32 é desativada, e o OpenCV usa uma thread (\autoref{sec:resOrganizacao}).
 
 \section{Fluxo de Execução}
 \label{sec:fluxo}
@@ -64,12 +64,12 @@ A CNN 1D é a prevista no projeto (\autoref{fig:arquiteturaCNN} e \autoref{tab:c
 \subsection{Treino e Divisão dos Dados}
 \label{subsec:desTreino}
 
-O treino usa a entropia cruzada e o Adam e para após 10 épocas sem que a acurácia de validação melhore 0,001, com teto de 200 épocas, restaurando os pesos da melhor época; o original parava pela perda de validação, com paciência de 5 e teto de 60. A troca faz a mesma métrica governar a parada e a seleção de hiperparâmetros. No experimento 04, o teto é de 10, 40 ou 200 épocas por \textit{trial}, e o treino termina também quando a validação atinge 0,95; nos experimentos 06 e 07, o teto é de 25 épocas, com lote 64. A divisão separa 85\% das amostras para treino e divide o restante entre validação e teste, com semente fixa (42); a semente de cada execução muda só os pesos iniciais, a ordem dos lotes e o \textit{dropout}. Só o experimento 04 usa 10\% do treino, com validação e teste inteiros.
+O treino usa a entropia cruzada e o Adam e para após 10 épocas sem que a acurácia de validação melhore 0,001, com teto de 200 épocas, restaurando os pesos da melhor época; o original parava pela perda de validação, com paciência de 5 e teto de 60. A troca faz a mesma métrica governar a parada e a seleção de hiperparâmetros. No experimento 04, o treino de cada \textit{trial} termina também quando a validação atinge 0,95; nos experimentos 06 e 07, o teto é de 25 épocas, com lote 64. A divisão separa 85\% das amostras para treino e divide o restante entre validação e teste, com semente fixa (42); a semente de cada execução muda só os pesos iniciais, a ordem dos lotes e o \textit{dropout}. Só o experimento 04 usa 10\% do treino, com validação e teste inteiros.
 
 \section{Paralelismo}
 \label{sec:desParalelismo}
 
-Antes das três estratégias, o treino já é paralelo dentro de cada operação: cada lote vai inteiro para a GPU, que calcula as convoluções e as camadas densas de todos os pixels do lote ao mesmo tempo (\autoref{fig:esqGPU}). Nos esquemas desta seção, as durações são ilustrativas; os tempos medidos estão no \autoref{cap:resultados}.
+Antes das três estratégias, o treino já é paralelo dentro de cada operação: cada lote vai inteiro para a GPU, que calcula as convoluções e as camadas densas de todos os pixels do lote ao mesmo tempo (\autoref{fig:esqGPU}). As durações nos esquemas são ilustrativas.
 
 \begin{figure}[H]
     \centering
@@ -162,11 +162,11 @@ O plano de verificação (\autoref{tab:descricaoExperimentos}) foi desdobrado no
         01 & Linha de base: configuração original com a CNN do projeto e com a de Souza (2023) & Três cenas; semente 42 \\
         02 & Segmentadores com a CNN do projeto na configuração original & Três cenas; 5 sementes \\
         03 & Segmentadores com a CNN otimizada para cada um (16 \textit{trials} de Otimização Bayesiana) & Três cenas; 5 sementes \\
-        04 & Grade contra Otimização Bayesiana, 27 \textit{trials} cada, tetos de 10, 40 e 200 épocas & Indian Pines; 3 sementes \\
+        04 & Grade contra Otimização Bayesiana, 27 \textit{trials} cada, até 200 épocas & Indian Pines; 3 sementes \\
         05 & Configuração otimizada no experimento 03 contra a original & Indian Pines; 5 sementes \\
         06 & Partição em 2 a 16 faixas: independente em processos e replicado em threads & Indian Pines; 3 sementes \\
         07 & Pool frio e quente de threads e de processos contra a execução sequencial & Indian Pines; semente 42 \\
-        08 & Fusão concorrente contra a inferência em lote & Três cenas; semente 42 \\
+        08 & Fusão concorrente contra a execução em série & Três cenas; semente 42 \\
         \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
@@ -183,6 +183,6 @@ A implementação seguiu o projeto quanto ao PyTorch, à arquitetura, aos três 
     \item \textbf{Busca}: o Optuna executa as duas estratégias, visto que o seu processo gaussiano aceita eixos categóricos, como o segmentador; a grade cobre 27 pontos, e não os 2.187; a arquitetura e o Adam ficam fixos, e as épocas são decididas pela parada antecipada.
     \item \textbf{Fusão}: mantido o identificador numérico do original, no lugar da codificação \textit{one-hot}, pois a fusão faz parte da configuração de referência; nenhuma configuração sem fusão é treinada, e a vantagem sobre a rede puramente espectral (RF03) é a reportada por \citeonline{Souza2023}.
     \item \textbf{Treino e ambiente}: parada pela acurácia de validação e teto de 200 épocas; GPU local, no lugar do Google Colab ou de HPC.
-    \item \textbf{Campanha}: a otimização isolada de cada componente deu lugar à comparação dos segmentadores com a CNN fixa (02) e otimizada (03); os experimentos 04 a 07 rodam só em Indian Pines, a cena de menor acurácia; o 04 treina com 10\% dos 85\% de treino, pelo custo dos 486 \textit{trials}; a linha de base usa uma semente; e os testes de significância deram lugar ao critério de duas vezes o desvio combinado.
+    \item \textbf{Campanha}: a otimização isolada de cada componente deu lugar à comparação dos segmentadores com a CNN fixa (02) e otimizada (03); os experimentos 04 a 07 rodam só em Indian Pines, a cena de menor acurácia; o 04 treina com 10\% dos 85\% de treino, pelo custo dos 162 \textit{trials}; a linha de base usa uma semente; e os testes de significância deram lugar ao critério de duas vezes o desvio combinado.
     \item \textbf{Paralelismo}: threads e processos na CPU, no lugar da segmentação em processo e da CNN na GPU: a comparação entre executores exige o mesmo dispositivo.
 \end{itemize}

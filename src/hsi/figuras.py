@@ -8,7 +8,7 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import torch  # noqa: E402
 from matplotlib.patches import Patch  # noqa: E402
-from matplotlib.ticker import FuncFormatter  # noqa: E402
+from matplotlib.ticker import FuncFormatter, MultipleLocator  # noqa: E402
 
 from hsi.ambiente import configure_determinism  # noqa: E402
 from hsi.config import FIGURAS, RESULTADOS, SEGMENTERS, ExperimentConfig  # noqa: E402
@@ -109,8 +109,8 @@ def f_fusao_linha_do_tempo(cena: str = "PU"):
 
     University of Pavia por padrão: a segmentação é longa o bastante para a sobreposição aparecer.
     """
-    arranjos = [("concorrente", "como no esquema (convolução e fusão na mesma tarefa)"),
-                ("desacoplado", "variante desacoplada (todas as convoluções primeiro)")]
+    arranjos = [("concorrente", "implementação proposta: cada thread faz as convoluções de um bloco e espera o mapa"),
+                ("desacoplado", "convoluções primeiro: todas entram na fila antes das fusões")]
     quadros = {a: ler(f"08_linha_do_tempo_{cena}_{a}.csv") for a, _ in arranjos}
     fim = max(q["fim"].max() for q in quadros.values())
     fig, eixos = plt.subplots(2, 1, figsize=(7.4, 4.4), sharex=True)
@@ -371,7 +371,7 @@ def f_linha_base():
 
 
 def f_hpo():
-    """Ganho da busca (experimento 05) e validação por teto de épocas (experimento 04)."""
+    """Ganho da busca (experimento 05) e maior validação a cada trial (experimento 04)."""
     d = ler("05_impacto_hpo.csv")
     fig, (a, b) = plt.subplots(1, 2, figsize=(9, 3.4), gridspec_kw={"width_ratios": [1.1, 1]})
     segs = [s for s in SEGMENTERS if s in set(d["condição"])]
@@ -390,15 +390,16 @@ def f_hpo():
     legendar(a, ncol=1, y=1.12)
 
     t = ler("04_trials.csv")
-    melhor = t.groupby(["orçamento", "estratégia", "semente"])["val_accuracy (objetivo)"].max()
+    t = t[t["orçamento"] == 200]
     for estrategia, rotulo, cor in (("grid", "busca em grade", LARANJA), ("bayes", "bayesiana", AZUL)):
-        m = melhor.xs(estrategia, level="estratégia").groupby("orçamento")
-        orc = m.mean().index.to_numpy()
-        b.errorbar(orc, m.mean(), yerr=m.std(ddof=0), marker="o", ms=6, lw=2, capsize=3,
-                   color=cor, label=rotulo)
-    b.set(xscale="log", xticks=[10, 40, 200], xticklabels=["10", "40", "200"],
-          xlabel="teto de épocas por trial", ylabel="maior validação")
-    b.set_title("Grade e bayesiana com 27 trials", loc="left")
+        curvas = t[t["estratégia"] == estrategia].pivot(index="trial", columns="semente",
+                                                       values="melhor até agora")
+        media, desvio = curvas.mean(axis=1), curvas.std(axis=1, ddof=0)
+        b.plot(curvas.index, media, lw=2, color=cor, label=rotulo)
+        b.fill_between(curvas.index, media - desvio, media + desvio, color=cor, alpha=0.15, lw=0)
+    b.set(xlim=(1, 27), xticks=[1, 5, 10, 15, 20, 25, 27], xlabel="trial",
+          ylabel="maior validação até o trial")
+    b.set_title("Grade e bayesiana, até 200 épocas por trial", loc="left")
     virgula(b, casas=2)
     limpar(b)
     legendar(b, ncol=1, y=1.12)
@@ -407,10 +408,14 @@ def f_hpo():
 
 
 def f_segmentadores():
-    """OA otimizada (experimento 03) e tempo de segmentação de cada segmentador."""
+    """OA otimizada (experimento 03) e o tempo de uma execução com cada segmentador.
+
+    No tempo, a segmentação vem de medicoes_avulsas.md e o treino é a média dos retreinos
+    do vencedor de cada segmentador, que tem os próprios hiperparâmetros e épocas.
+    """
     r = ler("03_resumo.csv")
     cenas = [c for c in CENAS if c in set(r["cena"])]
-    fig, (a, b) = plt.subplots(1, 2, figsize=(9, 3.2))
+    fig, (a, b) = plt.subplots(1, 2, figsize=(9, 3.2), gridspec_kw={"width_ratios": [1, 1.15]})
     largura = 0.8 / len(SEGMENTERS)
     cores = {"seeds": AZUL, "lsc": LARANJA, "watershed": AGUA}
     for k, seg in enumerate(SEGMENTERS):
@@ -418,25 +423,127 @@ def f_segmentadores():
         x = np.arange(len(cenas)) + (k - 1) * largura
         a.bar(x, linhas["OA"], largura * 0.92, yerr=linhas["OA_std"], capsize=2, color=cores[seg],
               label=NOME_SEG[seg], zorder=3, error_kw={"ecolor": TINTA2, "lw": 1})
-        xs = np.arange(len(CENAS)) + (k - 1) * largura
-        b.bar(xs, [TEMPO_SEG_MS[c][seg] for c in CENAS], largura * 0.92, color=cores[seg], zorder=3)
-    a.set(xticks=np.arange(len(cenas)), xticklabels=[CENAS[c] for c in cenas], ylim=(0.85, 1.0),
+    a.set(xticks=np.arange(len(cenas)), xticklabels=[CENAS[c].replace(" ", "\n", 1) for c in cenas], ylim=(0.85, 1.0),
           ylabel="OA de teste")
     a.set_title("OA com a CNN otimizada para cada um", loc="left")
     virgula(a, casas=2)
-    b.set(xticks=np.arange(len(CENAS)), xticklabels=list(CENAS.values()), yscale="log",
-          ylabel="ms por segmentação")
-    b.set_title("Tempo de segmentação", loc="left")
-    for eixo in (a, b):
-        limpar(eixo)
     legendar(a, ncol=3, y=1.12)
+
+    ip = r[r["cena"] == "IP"].set_index("condição")
+    segs = [s for s in SEGMENTERS if s in ip.index]
+    y = np.arange(len(segs))
+    segmentacao = np.array([TEMPO_SEG_MS["IP"][s] / 1000 for s in segs])
+    treino = ip.loc[segs, "treino_s"].to_numpy()
+    b.barh(y, segmentacao, color=TINTA, zorder=3, label="segmentação")
+    b.barh(y, treino, left=segmentacao, color=[cores[s] for s in segs], zorder=3, label="treino")
+    for yi, seg, t_seg, t_tr, ep in zip(y, segs, segmentacao, treino, ip.loc[segs, "épocas"]):
+        b.text(t_seg + t_tr + 0.6, yi, f"{num(t_seg + t_tr, 1)} s ({num(ep, 0)} épocas; "
+               f"segmentação {num(1000 * t_seg, 1)} ms)", va="center", fontsize=8, color=TINTA2)
+    b.set(yticks=y, yticklabels=[NOME_SEG[s] for s in segs], xlabel="segundos por execução",
+          xlim=(0, 1.9 * treino.max()))
+    b.invert_yaxis()
+    b.set_title("Tempo de uma execução em Indian Pines", loc="left")
+    virgula(b, "x", casas=0)
+    for eixo in (a, b):
+        limpar(eixo, "y" if eixo is a else "x")
     fig.tight_layout(w_pad=3)
     salvar_figura(fig, "segmentadores")
 
 
+def f_fusao_speedup():
+    """Fusão concorrente contra a execução em série, por número de threads (experimento 08).
+
+    Em cima, o speedup do tempo total; embaixo, o tempo que sobra depois de a segmentação
+    publicar o mapa, que não depende da variação do próprio SEEDS. Bloco 1.024, seção mínima.
+    """
+    q = ler("08_fusao_concorrente.csv")
+    q["resto"] = q["parede"] - q["t0_fim"]
+    g = q.groupby(["cena", "arranjo", "n", "bloco", "secao", "torch_threads"])[["parede", "resto", "segmentacao"]].median()
+    cenas = [c for c in CENAS if c in set(q["cena"])]
+    fig, eixos = plt.subplots(2, len(cenas), figsize=(9, 4.4), sharex=True)
+    for col, cena in enumerate(cenas):
+        serie_1024 = g.loc[(cena, "sequencial", 1, 1024, "-", 1)]
+        lote16 = g.loc[(cena, "lote")].xs(16, level="torch_threads")["parede"].iloc[0]
+        a, b = eixos[0, col], eixos[1, col]
+        a.axhline(1, color=LINHA, lw=1)
+        a.axhline(serie_1024["parede"] / serie_1024["segmentacao"], color=TINTA2, lw=1.2, ls=":",
+                  label="teto (série ÷ segmentação)")
+        a.axhline(serie_1024["parede"] / lote16, color=NEUTRO, lw=1.5, ls="--",
+                  label="inferência normal com 16 threads")
+        b.axhline(1000 * serie_1024["resto"], color=TINTA, lw=1.2, ls="-.", label="em série (embaixo)")
+        for arranjo, rotulo, cor in (("concorrente", "implementação proposta", AZUL),
+                                     ("desacoplado", "convoluções primeiro", LARANJA)):
+            serie = g.loc[(cena, arranjo)].xs((1024, "minima", 1), level=("bloco", "secao", "torch_threads"))
+            a.plot(serie.index, serie_1024["parede"] / serie["parede"], marker="o", ms=4, lw=2, color=cor, label=rotulo)
+            b.plot(serie.index, 1000 * serie["resto"], marker="o", ms=4, lw=2, color=cor)
+        a.set_title(CENAS[cena], loc="left")
+        a.set(ylim=(0.6, 2.2), yticks=[0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0])
+        b.set_ylim(0, None)
+        b.set(xscale="log", xticks=[1, 2, 4, 8, 16], xticklabels=["1", "2", "4", "8", "16"], xlabel="threads")
+        b.xaxis.set_minor_locator(plt.NullLocator())
+        virgula(a, casas=1)
+        virgula(b, casas=0)
+        limpar(a)
+        limpar(b)
+    eixos[0, 0].set_ylabel("vezes mais rápido\nque em série")
+    eixos[1, 0].set_ylabel("ms depois da\nsegmentação")
+    alcas, rotulos = eixos[0, 0].get_legend_handles_labels()
+    alca_serie, rotulo_serie = eixos[1, 0].get_legend_handles_labels()
+    alcas, rotulos = alcas + alca_serie[:1], rotulos + rotulo_serie[:1]
+    fig.tight_layout(w_pad=1.5, h_pad=1.2, rect=(0, 0, 1, 0.88))
+    fig.legend(alcas, rotulos, ncol=3, loc="upper left", bbox_to_anchor=(0.06, 1.0), frameon=False)
+    salvar_figura(fig, "fusao_speedup")
+
+
+def f_particao_resultados():
+    """Speedup da partição sobre o sequencial (experimento 07) e OA por N (experimento 06)."""
+    q = ler("07_pool_quente.csv")
+    q = q[q["modo"] == "independente"]
+    tempo = q.groupby(["executor", "estado", "n"])["bloco_paralelo"].median()
+    fig, (a, b) = plt.subplots(1, 2, figsize=(9, 3.4))
+    sequencial = tempo.xs("sequencial", level="executor").groupby("n").median()
+    curvas = (("process", "quente", "processos já abertos", AZUL, "-"),
+              ("process", "frio", "processos abertos na hora", AZUL, "--"),
+              ("thread", "quente", "threads já abertas", LARANJA, "-"),
+              ("thread", "frio", "threads abertas na hora", LARANJA, "--"))
+    for executor, estado, rotulo, cor, estilo in curvas:
+        if (executor, estado) not in tempo.index.droplevel("n"):
+            continue
+        serie = tempo[(executor, estado)]
+        ns = [n for n in serie.index if n in sequencial.index]
+        a.plot(ns, [sequencial[n] / serie[n] for n in ns], marker="o", ms=5, lw=2, color=cor,
+               ls=estilo, label=rotulo)
+    a.axhline(1, color=LINHA, lw=1)
+    a.set(xscale="log", xticks=[2, 4, 8, 16, 32], xticklabels=["2", "4", "8", "16", "32"],
+          xlabel="faixas", ylabel="vezes mais rápido que\numa faixa por vez")
+    a.set_title("Cada faixa treina o seu modelo", loc="left")
+    virgula(a, casas=0)
+    limpar(a)
+    legendar(a, ncol=2, y=1.12)
+
+    d = ler("06_paralelismo_particao.csv")
+    mono = d[d["arranjo"] == "monolítico"]["OA"]
+    ind = d[d["arranjo"] == "independente"].groupby("n")["OA"]
+    b.axhspan(mono.mean() - mono.std(ddof=0), mono.mean() + mono.std(ddof=0), color=GRADE, zorder=0)
+    b.axhline(mono.mean(), color=NEUTRO, lw=1.5, ls="--", label="um modelo para a cena inteira")
+    b.errorbar(ind.mean().index, ind.mean(), yerr=ind.std(ddof=0), marker="o", ms=5, lw=2, capsize=3,
+               color=AZUL, label="um modelo por faixa")
+    b.set(xscale="log", xticks=[2, 4, 8, 16], xticklabels=["2", "4", "8", "16"],
+          xlabel="faixas", ylabel="OA de teste")
+    b.set_title("Acurácia com um modelo por faixa", loc="left")
+    b.yaxis.set_major_locator(MultipleLocator(0.01))
+    for eixo in (a, b):
+        eixo.minorticks_off()
+    virgula(b, casas=2)
+    limpar(b)
+    legendar(b, ncol=1, y=1.12)
+    fig.tight_layout(w_pad=3)
+    salvar_figura(fig, "particao_resultados")
+
+
 FIGURAS = (f_segmentacoes_ip, f_particao_faixas, f_curvas_treino, f_mapa_classificacao,
            f_matriz_confusao, f_fusao_linha_do_tempo, f_eixos, f_linha_base, f_hpo,
-           f_segmentadores)
+           f_segmentadores, f_fusao_speedup, f_particao_resultados)
 
 
 def gerar(*nomes: str) -> None:
