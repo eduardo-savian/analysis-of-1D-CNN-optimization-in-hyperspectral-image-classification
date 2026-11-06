@@ -122,7 +122,7 @@ E(s) = H(s) + \gamma G(s)
 
 \noindent onde $E(s)$ é a energia da segmentação $s$, $H(s)$ é o termo de histograma, que mede a homogeneidade de cor dentro de cada superpixel, $G(s)$ é o termo de contorno, que favorece fronteiras suaves, e $\gamma$ controla o equilíbrio entre cor e contornos.
 
-Além do SEEDS, três outros algoritmos de superpixels são usados neste trabalho. O SLIC (\textit{Simple Linear Iterative Clustering}) distribui sementes em uma grade regular de espaçamento $S$ e executa um \textit{k-means} local, em que cada pixel é atribuído à semente mais próxima segundo uma distância que combina cor e posição; a busca de cada semente fica restrita a uma janela de $2S \times 2S$ ao seu redor \cite{Achanta2012SLIC}. A variante SLICO ajusta a compacidade automaticamente, dispensando o parâmetro que a controla. O LSC (\textit{Linear Spectral Clustering}) mapeia cada pixel para um espaço de características de dimensão mais alta, no qual um \textit{k-means} ponderado aproxima o critério de cortes normalizados em grafos, o que tende a produzir bordas mais aderentes aos contornos da imagem \cite{Zhengqin7298741}. O Watershed trata a magnitude do gradiente como um relevo topográfico e o inunda a partir de marcadores; as fronteiras entre regiões surgem onde águas de bacias diferentes se encontram \cite{Najman546254}. Todos eles, assim como o SEEDS, recebem como entrada uma imagem de três canais: no caso das HSIs, uma composição das três primeiras componentes principais.
+Além do SEEDS, dois outros algoritmos de superpixels são usados neste trabalho. O LSC (\textit{Linear Spectral Clustering}) mapeia cada pixel, descrito pela cor e pela posição, para um espaço de características de dimensão mais alta, no qual um \textit{k-means} ponderado aproxima o critério de cortes normalizados em grafos, o que tende a produzir bordas mais aderentes aos contornos da imagem; o tamanho médio das regiões e o peso da compacidade são seus parâmetros principais \cite{Zhengqin7298741}. O Watershed trata a magnitude do gradiente como um relevo topográfico e o inunda a partir de marcadores; as fronteiras entre regiões surgem onde águas de bacias diferentes se encontram, e o número de regiões acompanha o número de marcadores \cite{Najman546254}. Todos eles, assim como o SEEDS, recebem como entrada uma imagem de três canais: no caso das HSIs, uma composição das três primeiras componentes principais. Como a informação que o identificador do superpixel leva à rede depende de quantas regiões a cena tem, o LSC e o Watershed foram configurados para gerar, em cada cena, o mesmo número de regiões que o SEEDS com os parâmetros do trabalho original; a comparação entre os três mede, assim, a forma das regiões, e não a sua quantidade (\autoref{subsec:desSegmentadores}).
 
 \subsection{Métricas de Avaliação}
 
@@ -202,7 +202,7 @@ A natureza dos dados e do problema determina qual paradigma de aprendizado usar 
 \begin{itemize}
     \item \textbf{Aprendizado Supervisionado}: Estima um mapeamento a partir de amostras de entrada e saída, em que as saídas são rótulos ou valores conhecidos. As tarefas mais comuns são classificação e regressão. É o paradigma deste trabalho: cada pixel rotulado do GT fornece um espectro de entrada e a classe esperada.
 
-    \item \textbf{Aprendizado Não Supervisionado}: O sistema recebe apenas amostras de entrada, sem rótulos, e procura estrutura nos próprios dados, como grupos de amostras semelhantes. Os algoritmos de superpixels SLIC e LSC (\autoref{subsec:fundSegmentacao}) são exemplos: agrupam pixels por \textit{k-means} sem usar nenhum rótulo.
+    \item \textbf{Aprendizado Não Supervisionado}: O sistema recebe apenas amostras de entrada, sem rótulos, e procura estrutura nos próprios dados, como grupos de amostras semelhantes. Os três algoritmos de superpixels deste trabalho (\autoref{subsec:fundSegmentacao}) são exemplos: particionam a imagem sem usar nenhum rótulo, e o LSC, em particular, agrupa os pixels por um \textit{k-means} ponderado.
 
     \item \textbf{Aprendizado Semissupervisionado}: Do inglês \textit{Semi-supervised learning} (SSL), situa-se entre os dois paradigmas anteriores e usa dados em que apenas parte das amostras é rotulada.
 \end{itemize}
@@ -285,7 +285,7 @@ z_{x,y}^{\ell} = b^{\ell} + \sum_{l,k} w_{l,k}^{\ell} \cdot a_{x-l,y-k}^{\ell-1}
 \end{equation}
 \addEquacao{Entrada Líquida em Camada Convolucional}{5}
 
-\noindent onde $z_{x,y}^{\ell}$ é a entrada na posição $(x,y)$ da camada $\ell$, $b^{\ell}$ é o viés (\textit{bias}), $w_{l,k}^{\ell}$ são os pesos do \textit{kernel} e $a_{x-l,y-k}^{\ell-1}$ são as ativações da camada anterior. Todas as unidades de um mesmo mapa de características compartilham o mesmo conjunto de pesos, o que reduz o número de parâmetros. Essa abordagem assume que um detector de características útil em uma parte da imagem será útil em outra parte. A camada de \textit{pooling} reduz a dimensão espacial dos mapas de características e torna a representação mais compacta e robusta a pequenas translações. Uma CNN típica consiste em estágios de camadas convolucionais seguidas por camadas de \textit{pooling}, e termina em camadas totalmente conectadas para a classificação.
+\noindent onde $z_{x,y}^{\ell}$ é a entrada na posição $(x,y)$ da camada $\ell$, $b^{\ell}$ é o viés (\textit{bias}), $w_{l,k}^{\ell}$ são os pesos do \textit{kernel} e $a_{x-l,y-k}^{\ell-1}$ são as ativações da camada anterior. Todas as unidades de um mesmo mapa de características compartilham o mesmo conjunto de pesos, o que reduz o número de parâmetros. Essa abordagem assume que um detector de características útil em uma parte da imagem será útil em outra parte. A camada de \textit{pooling} reduz a dimensão espacial dos mapas de características e torna a representação mais compacta e robusta a pequenas translações. Uma CNN típica consiste em estágios de camadas convolucionais seguidas por camadas de \textit{pooling}, e termina em camadas totalmente conectadas para a classificação. Na CNN deste trabalho (\autoref{fig:arquiteturaCNN}), um \textit{max-pooling} de tamanho 2 segue cada uma das três primeiras convoluções, que preservam o comprimento do espectro.
 
 Na convolução, cada elemento do mapa de características de saída depende apenas de uma região local da entrada e dos pesos do \textit{kernel} compartilhado, e não dos demais elementos da mesma camada. Essa independência de dados entre elementos de saída é o que permite calcular a camada em paralelo na GPU (\autoref{sec:paralelismo}).
 
@@ -348,7 +348,7 @@ O treinamento e a inferência de CNNs admitem paralelismo em mais de um nível \
 
 \textbf{Paralelismo Intra-Camada}: Dentro de uma camada convolucional, os elementos de saída são calculados em paralelo nos \textit{CUDA cores}. As implementações em GPU, como a cuDNN, exploram esse paralelismo automaticamente, sem intervenção do programador.
 
-\textbf{Paralelismo entre Etapas}: Etapas que não dependem uma da outra podem ser executadas concorrentemente. No fluxo de \citeonline{Souza2023}, isso ocorre em dois pontos. Na preparação dos dados, o ramo espectral, que reduz o espectro por PCA, e o ramo espacial, que compõe as três primeiras componentes principais e segmenta a imagem, partem da mesma cena e só se reúnem na montagem das entradas da rede. Na inferência, a segmentação, executada em CPU pelo OpenCV, e as convoluções da rede também são independentes: as convoluções não usam o mapa de segmentação, e a sincronização só é necessária na concatenação, que precisa do identificador do superpixel de cada pixel. Essas duas oportunidades correspondem, neste trabalho, ao paralelismo entre os ramos do pré-processamento e à fusão concorrente (\autoref{sec:desParalelismo}); a biblioteca padrão do Python oferece threads e processos para executá-las \cite{Python_Threading}.
+\textbf{Paralelismo entre Etapas}: Etapas que não dependem uma da outra podem ser executadas concorrentemente. No fluxo de \citeonline{Souza2023}, isso ocorre em dois pontos. Na preparação dos dados, o ramo espectral, que reduz o espectro por PCA, e o ramo espacial, que compõe as três primeiras componentes principais e segmenta a imagem, partem da mesma cena e só se reúnem na montagem das entradas da rede. Na inferência, a segmentação, executada em CPU pelo OpenCV, e as convoluções da rede também são independentes: as convoluções não usam o mapa de segmentação, e a sincronização só é necessária na concatenação, que precisa do identificador do superpixel de cada pixel. Essas duas oportunidades correspondem, neste trabalho, ao paralelismo entre os ramos do pré-processamento e à fusão concorrente (\autoref{sec:desParalelismo}), ambas executadas com threads da biblioteca padrão do Python \cite{Python_Threading}: o PCA, o OpenCV e as convoluções do PyTorch liberam o GIL no trabalho pesado, e as threads compartilham os dados sem cópia (\autoref{sec:concorrencia}).
 
 \section{Concorrência em CPU}
 \label{sec:concorrencia}
@@ -414,9 +414,18 @@ S_{\max} = \frac{T_1 + T_2}{\max(T_1, T_2)}
 
 Hiperparâmetros são as escolhas feitas antes do treino, como a taxa de aprendizado, o \textit{dropout}, o tamanho do lote, o número de componentes do PCA e os parâmetros do segmentador; os parâmetros, os pesos, são o que o treino aprende. A Otimização de Hiperparâmetros (HPO) automatiza a escolha: cada avaliação de uma combinação, chamada \textit{trial}, consiste em treinar e validar um modelo \cite{WU201926}.
 
-A busca em grade avalia todas as combinações de um espaço discreto e fica inviável rapidamente, porque o número de combinações é o produto do número de valores de cada hiperparâmetro. A busca aleatória sorteia combinações e, com o mesmo orçamento, encontra configurações tão boas quanto as da grade ou melhores, porque poucos hiperparâmetros costumam importar e o sorteio testa mais valores distintos de cada um \cite{Bergstra2012Random}. A Otimização Bayesiana usa os \textit{trials} já observados para decidir o próximo. Na forma clássica, ela modela a função objetivo por um processo gaussiano e escolhe o próximo \textit{trial} por uma função de aquisição, que equilibra exploração e explotação \cite{WU201926}; o \textit{Tree-structured Parzen Estimator} (TPE) estima as densidades $l(x)$ e $g(x)$ dos hiperparâmetros entre os melhores \textit{trials} e entre os demais e propõe a combinação que maximiza $l(x)/g(x)$ \cite{Bergstra2011TPE}, e a biblioteca Optuna o implementa \cite{Akiba2019Optuna}. Os algoritmos genéticos mantêm uma população de candidatos e a aprimoram a cada geração por seleção, cruzamento e mutação; o elitismo preserva os melhores de uma geração para a seguinte \cite{Holland1975}.
+A busca em grade avalia todas as combinações de um espaço discreto e fica inviável rapidamente, porque o número de combinações é o produto do número de valores de cada hiperparâmetro \cite{liashchynskyi2019gridsearchrandomsearch}. Com três valores em cada um dos sete eixos deste trabalho (segmentador, configuração do segmentador, taxa de aprendizado, \textit{dropout}, \textit{weight decay}, tamanho do lote e componentes do PCA), seriam 2.187 combinações por cena. Por isso, neste trabalho, a grade cobre só o segmentador, a taxa de aprendizado e o \textit{dropout}, em 27 combinações, com os demais eixos no valor da configuração original (\autoref{sec:desHPO}).
 
-A seleção deve usar exclusivamente o conjunto de validação, porque escolher pelo teste o transforma em parte do ajuste. Como cada \textit{trial} é um treino, o custo pode ser reduzido avaliando os candidatos com poucas épocas e retreinando só o vencedor, como fazem os agendadores ASHA e RASDA (\autoref{sec:trabRel}) \cite{Aach2025}. O risco é que a ordenação obtida com poucas épocas não se mantenha com o treino completo, o que foi medido neste trabalho com 10, 40 e 200 épocas por \textit{trial} (\autoref{tab:estrategias}).
+A Otimização Bayesiana, aplicada aqui ao espaço inteiro, usa os \textit{trials} já observados para decidir o próximo. Ela modela a função objetivo, a acurácia de validação, por um processo gaussiano: uma distribuição sobre funções definida por uma média e por um núcleo de covariância, que expressa quanto duas combinações próximas tendem a ter valores parecidos. Condicionado aos \textit{trials} observados, o processo atribui a cada combinação $x$ ainda não testada uma média $\mu(x)$ e um desvio $\sigma(x)$, e o próximo \textit{trial} é o máximo de uma função de aquisição, que equilibra exploração e explotação \cite{WU201926}. Uma função de aquisição usual é a melhora esperada (\textit{Expected Improvement}, EI) sobre o melhor valor observado até então, $f^{*}$:
+
+\begin{equation}
+EI(x) = \mathbb{E}\left[\max\left(f(x) - f^{*},\, 0\right)\right] = \left(\mu(x) - f^{*}\right)\Phi(z) + \sigma(x)\,\phi(z)
+\end{equation}
+\addEquacao{Melhora Esperada}{15}
+
+\noindent onde $z = (\mu(x) - f^{*})/\sigma(x)$, e $\Phi$ e $\phi$ são a função de distribuição acumulada e a densidade da distribuição normal padrão \cite{WU201926}. O primeiro termo favorece a explotação, onde a média prevista supera $f^{*}$, e o segundo, a exploração, onde a incerteza é grande. A biblioteca Optuna \cite{Akiba2019Optuna}, usada neste trabalho, implementa essa forma com núcleo de Matérn 5/2 e com o logaritmo da melhora esperada, numericamente mais estável; os primeiros \textit{trials} são sorteados, para que o processo gaussiano tenha pontos de partida.
+
+A seleção deve usar exclusivamente o conjunto de validação, porque escolher pelo teste o transforma em parte do ajuste. Como cada \textit{trial} é um treino, o custo pode ser reduzido avaliando os candidatos com poucas épocas e reservando o treino longo aos mais promissores, como fazem os agendadores ASHA e RASDA (\autoref{sec:trabRel}) \cite{Aach2025}. O risco é que a ordenação obtida com poucas épocas não se mantenha com um orçamento maior, o que é medido neste trabalho na comparação entre a busca em grade e a Otimização Bayesiana, com tetos de 10, 40 e 200 épocas por \textit{trial} (\autoref{tab:estrategias}). \pendente{experimento 04: a comparação entre grade e bayesiana por teto de épocas; se não rodar a tempo, esta frase e a referência à tabela saem}
 
 \section{Trabalhos Relacionados}
 \label{sec:trabRel}
@@ -486,7 +495,7 @@ O autor associa o TensorFlow à prototipagem rápida e o PyTorch a aplicações 
 
 O trabalho de \citeonline{Souza2023} é o ponto de partida deste estudo. O autor aborda a classificação de HSIs, em que há um compromisso entre complexidade computacional e acurácia, e observa que os métodos tradicionais se concentram nas características espectrais e subutilizam o contexto espacial, que pode melhorar a distinção entre classes. Os objetivos são avaliar o impacto do pré-processamento espacial na classificação por aprendizado de máquina, integrar a segmentação SEEDS a uma CNN 1D por concatenação, comparar o resultado com modelos de base e com o estado da arte, e quantificar o custo computacional da abordagem.
 
-A metodologia propõe uma arquitetura híbrida que combina uma CNN 1D, para a classificação espectral, com o SEEDS, para a segmentação espacial. A Figura \ref{fig:metodologia_souza} mostra o fluxo completo, da separação dos conjuntos de dados à extração das métricas de avaliação. O processamento tem dois ramos independentes, executados em sequência: o ramo superior realiza PCA, definição de parâmetros, segmentação e concatenação das características espaciais; o ramo inferior executa PCA e vetorização, divisão dos dados de treino e classificação pela CNN 1D. Na implementação original, a CNN 1D tem quatro camadas convolucionais, com 16, 32, 64 e 64 filtros, seguidas por duas camadas densas, de 128 e 64 neurônios, e pela camada de saída (\autoref{tab:camadas}). A fusão é feita por uma camada de concatenação, que junta às características extraídas pelas convoluções o identificador do superpixel do pixel. Os hiperparâmetros da rede e do SEEDS foram ajustados manualmente: o autor relata ter alterado, por conjunto de dados, a paciência da parada antecipada e outros parâmetros de treino ao buscar o melhor resultado \cite{Souza2023}.
+A metodologia propõe uma arquitetura híbrida que combina uma CNN 1D, para a classificação espectral, com o SEEDS, para a segmentação espacial. A Figura \ref{fig:metodologia_souza} mostra o fluxo completo, da separação dos conjuntos de dados à extração das métricas de avaliação. O processamento tem dois ramos independentes, executados em sequência: o ramo superior realiza PCA, definição de parâmetros, segmentação e concatenação das características espaciais; o ramo inferior executa PCA e vetorização, divisão dos dados de treino e classificação pela CNN 1D. Na implementação original, a CNN 1D tem quatro camadas convolucionais, com 16, 32, 64 e 64 filtros e sem \textit{pooling}, seguidas por duas camadas densas, de 128 e 64 neurônios, e pela camada de saída; a rede usada neste trabalho, a prevista no \autoref{cap:proj}, acrescenta \textit{max-pooling}, tem 128 filtros na última convolução e densas de 256 e 128 neurônios (\autoref{tab:camadas}). A fusão é feita por uma camada de concatenação, que junta às características extraídas pelas convoluções o identificador do superpixel do pixel. Os hiperparâmetros da rede e do SEEDS foram ajustados manualmente: o autor relata ter alterado, por conjunto de dados, a paciência da parada antecipada e outros parâmetros de treino ao buscar o melhor resultado \cite{Souza2023}.
 
 \begin{figure}[H]
     \centering
@@ -498,7 +507,7 @@ A metodologia propõe uma arquitetura híbrida que combina uma CNN 1D, para a cl
     \label{fig:metodologia_souza}
 \end{figure}
 
-A validação experimental foi conduzida em três cenas: Indian Pines (21.025 pixels, 10.249 rotulados, 16 classes), Salinas Valley (111.104 pixels, 54.129 rotulados, 16 classes) e University of Pavia (207.400 pixels, 42.776 rotulados, 9 classes). As métricas avaliadas incluem Acurácia Geral (OA), Acurácia Média (AA), coeficiente Kappa, tempo de inferência e uso de memória. Com a fusão SEEDS, o autor reporta OA de 0,9142, AA de 0,8956 e Kappa de 0,9019 em Indian Pines, OA de 0,9928 em University of Pavia e OA de 0,9965 em Salinas Valley (\autoref{tab:linhaBase}); em Indian Pines, a fusão acrescentou 8,33, 8,79 e 9,47 pontos percentuais de OA, AA e Kappa à mesma rede sem a informação espacial. Essa configuração, com a fusão, é a referência contra a qual os ganhos deste trabalho são medidos. O fluxograma da Figura \ref{fig:metodologia_souza} mostra ainda o processo iterativo de treinamento, teste e extração de métricas, com validação baseada em um valor estimado de acurácia.
+A validação experimental foi conduzida em três cenas: Indian Pines (21.025 pixels, 10.249 rotulados, 16 classes), Salinas Valley (111.104 pixels, 54.129 rotulados, 16 classes) e University of Pavia (207.400 pixels, 42.776 rotulados, 9 classes). As métricas avaliadas incluem Acurácia Geral (OA), Acurácia Média (AA), coeficiente Kappa, tempo de inferência e uso de memória. Com a fusão SEEDS, o autor reporta OA de 0,9142, AA de 0,8956 e Kappa de 0,9019 em Indian Pines, OA de 0,9928 em University of Pavia e OA de 0,9965 em Salinas Valley; em Indian Pines, a fusão acrescentou 8,33, 8,79 e 9,47 pontos percentuais de OA, AA e Kappa à mesma rede sem a informação espacial. Essa configuração, com a fusão SEEDS, é a referência contra a qual os ganhos deste trabalho são medidos: os hiperparâmetros de treino e os parâmetros do SEEDS do autor formam a linha de base, executada com a CNN prevista no \autoref{cap:proj}, e a rede do autor é treinada nas mesmas condições apenas para a comparação com os valores reportados (\autoref{tab:linhaBase}). O fluxograma da Figura \ref{fig:metodologia_souza} mostra ainda o processo iterativo de treinamento, teste e extração de métricas, com validação baseada em um valor estimado de acurácia.
 
 \subsection{Análise Comparativa dos Trabalhos Relacionados}
 
@@ -516,32 +525,32 @@ O \autoref{tab:trabRel} compara os três trabalhos com este. Os de \citeonline{A
         \textbf{Arquitetura de IA} & 
         ResNet50 (ImageNet), autoencoder convolucional (CFD) e SwinTransformer (AM) &
         CNN customizada&
-        CNN 1D& 
-        CNN 1D otimizada com fusão espectral-espacial \\
+        CNN 1D (16 a 64 filtros, sem \textit{pooling}) &
+        CNN 1D do projeto (16 a 128 filtros, com \textit{max-pooling}) e fusão espectral-espacial \\
         \hline
         \textbf{Processamento Paralelo} & 
         Sim. RASDA&
         Sim. Paralelismo de dados (MirroredStrategy e DataParallel) &
         Não. Ramos independentes, executados em sequência &
-        Sim. Threads e processos: entre os ramos do pré-processamento, por partição da cena e na fusão concorrente\\
+        Sim. Threads entre os ramos do pré-processamento e na fusão concorrente; threads e processos na partição da cena\\
         \hline
         \textbf{Segmentação} & 
         Não aplicado & 
         Não aplicado & 
         Sim. SEEDS ajustado manualmente & 
-        Sim. SEEDS, SLIC, LSC e Watershed sob otimização conjunta \\
+        Sim. SEEDS, LSC e Watershed, com o mesmo número de regiões e com a configuração otimizada junto com a da CNN \\
         \hline
         \textbf{HPO} & 
         Sim. ASHA e RASDA &
         Não abordada &
         Não. Ajuste manual por conjunto de dados &
-        Sim. Busca aleatória, TPE e algoritmo genético para CNN e segmentação \\
+        Sim. Busca em grade e Otimização Bayesiana com processo gaussiano, para a CNN e o segmentador \\
         \hline
         \textbf{Métricas} & 
         Val MSE, Test MSE, Runtime, Relative Error & 
         Test Accuracy, Training Time, Val Accuracy & 
         OA, AA, Kappa, Tempo, Memória & 
-        OA, AA, Kappa, Tempo, Memória, \textit{Speedup} \\
+        OA, AA, Kappa, Tempo, Memória por processo, \textit{Speedup} \\
         \hline
         \textbf{Datasets} & 
         ImageNet, CFD, RAISE-LPBF& 

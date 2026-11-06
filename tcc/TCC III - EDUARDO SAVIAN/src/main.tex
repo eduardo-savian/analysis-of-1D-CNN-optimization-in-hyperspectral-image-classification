@@ -50,6 +50,7 @@
 %\usepackage{array} 
 \usepackage{multirow}
 \usepackage{threeparttable} % to use table notes
+\usepackage{longtable} % quadros que passam de uma página (apêndice C)
 
 \usepackage{caption}
 \usepackage{textcomp}
@@ -109,6 +110,10 @@
 % ordem sempre que uma equação era inserida antes. Agora usa o número impresso.
 \renewcommand{\addEquacao}[2]{%
     \addcontentsline{loe}{Equacao}{\protect Equação \theequation. #1}\par}
+
+% Marca de rascunho: o que depende de um experimento ainda não executado (ou em execução).
+% Sai do texto antes da entrega; uma busca por \pendente lista o que falta.
+\newcommand{\pendente}[1]{\textcolor{red}{\textbf{[Pendente: #1]}}}
 
 \begin{document}
 \newcounter{equationCounter}

@@ -1,17 +1,17 @@
 \chapter{Resultados Complementares}
 \label{ap:complementares}
 
-Este apêndice reúne as tabelas de detalhe dos resultados do \autoref{cap:resultados}, na ordem das seções daquele capítulo, e as curvas de treino da configuração original (\autoref{subsec:desTreino}).
+Este apêndice reúne as tabelas de detalhe dos resultados do \autoref{cap:resultados}, agrupadas pelas seções daquele capítulo, e as curvas de treino da linha de base (\autoref{subsec:desTreino}), a CNN do projeto com os hiperparâmetros de \citeonline{Souza2023}.
 
 \section{Linha de Base}
 
 \begin{figure}[H]
     \centering
     \captionsetup{justification=centering}
-    \caption{Perda e acurácia por época na configuração original em Indian Pines (semente 42, treino completo)}
+    \caption{Perda e acurácia por época na linha de base em Indian Pines (CNN do projeto com os hiperparâmetros originais, semente 42, treino completo)}
     \includegraphics[width=\textwidth]{assets/resultados/curvas_treino.pdf}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. A linha tracejada marca a melhor época}
+    \caption*{Fonte: Elaborada pelo autor. A linha tracejada marca a melhor época (42 de 52), cujos pesos são restaurados}
     \label{fig:curvasTreino}
 \end{figure}
 
@@ -25,50 +25,51 @@ Este apêndice reúne as tabelas de detalhe dos resultados do \autoref{cap:resul
         \rowcolor[HTML]{C0C0C0}
         \textbf{Cena} & \textbf{Rotulados} & \textbf{Classes} & \textbf{Treino} & \textbf{Treino (10\%)} & \textbf{Validação} & \textbf{Teste} & \textbf{Comp. do PCA} & \textbf{Parâmetros} \\
         \hline
-        Indian Pines & 10.249 & 16 & 8.711 & 871 & 769 & 769 & 30 & 160.912 \\ \hline
-        University of Pavia & 42.776 & 9 & 36.359 & 3.635 & 3.209 & 3.208 & 15 & 37.577 \\ \hline
-        Salinas Valley & 54.129 & 16 & 46.009 & 4.602 & 4.060 & 4.060 & 15 & 38.032 \\ \hline
+        Indian Pines & 10.249 & 16 & 8.711 & 871 & 769 & 769 & 30 & 166.416 \\ \hline
+        University of Pavia & 42.776 & 9 & 36.359 & --- & 3.209 & 3.208 & 15 & 99.977 \\ \hline
+        Salinas Valley & 54.129 & 16 & 46.009 & --- & 4.060 & 4.060 & 15 & 100.880 \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Divisão com a semente 42; o treino de 10\% é sorteado por classe dentro do treino completo}
+    \caption*{Fonte: Elaborada pelo autor. Divisão com a semente 42. Treino (10\%): fração usada apenas no experimento 04, em Indian Pines, sorteada por classe dentro do treino completo com a semente de cada execução; os demais experimentos usam o treino completo. Parâmetros: CNN do projeto; a CNN de \citeonline{Souza2023}, usada só na comparação do experimento 01, tem 160.912, 37.577 e 38.032 parâmetros}
     \label{tab:dadosCenas}
 \end{table}
 
 \begin{table}[H]
     \centering
-    \caption{Acurácia por classe em Indian Pines com a configuração original (semente 42, treino completo)}
-    \begin{tabular}{|r|l|c|c|c|}
+    \caption{Acurácia por classe em Indian Pines na linha de base, com a CNN do projeto e a CNN original (hiperparâmetros originais, semente 42, treino completo)}
+    \small
+    \begin{tabular}{|r|l|c|C{1.7cm}|C{1.7cm}|C{1.7cm}|}
         \hline
         \rowcolor[HTML]{C0C0C0}
-        \textbf{Nº} & \textbf{Classe} & \textbf{Pixels} & \textbf{Amostras de teste} & \textbf{Acurácia} \\
+        \textbf{Nº} & \textbf{Classe} & \textbf{Pixels} & \textbf{Amostras de teste} & \textbf{CNN do projeto} & \textbf{CNN original} \\
         \hline
-        1 & \textit{Alfalfa} & 46 & 3 & 0,0000 \\ \hline
-        2 & \textit{Corn-notill} & 1.428 & 107 & 0,8692 \\ \hline
-        3 & \textit{Corn-mintill} & 830 & 62 & 0,7419 \\ \hline
-        4 & \textit{Corn} & 237 & 18 & 0,7778 \\ \hline
-        5 & \textit{Grass-pasture} & 483 & 36 & 0,8611 \\ \hline
-        6 & \textit{Grass-trees} & 730 & 55 & 1,0000 \\ \hline
-        7 & \textit{Grass-pasture-mowed} & 28 & 2 & 1,0000 \\ \hline
-        8 & \textit{Hay-windrowed} & 478 & 36 & 1,0000 \\ \hline
-        9 & \textit{Oats} & 20 & 2 & 0,5000 \\ \hline
-        10 & \textit{Soybean-notill} & 972 & 73 & 0,8767 \\ \hline
-        11 & \textit{Soybean-mintill} & 2.455 & 184 & 0,9457 \\ \hline
-        12 & \textit{Soybean-clean} & 593 & 44 & 0,8182 \\ \hline
-        13 & \textit{Wheat} & 205 & 16 & 1,0000 \\ \hline
-        14 & \textit{Woods} & 1.265 & 95 & 1,0000 \\ \hline
-        15 & \textit{Buildings-Grass-Trees-Drives} & 386 & 29 & 0,9310 \\ \hline
-        16 & \textit{Stone-Steel-Towers} & 93 & 7 & 0,8571 \\ \hline
-         & \textbf{Média (AA)} & 10.249 & 769 & 0,8237 \\ \hline
+        1 & \textit{Alfalfa} & 46 & 4 & 1,0000 & 1,0000 \\ \hline
+        2 & \textit{Corn-notill} & 1.428 & 107 & 0,8692 & 0,8972 \\ \hline
+        3 & \textit{Corn-mintill} & 830 & 62 & 0,8387 & 0,7742 \\ \hline
+        4 & \textit{Corn} & 237 & 18 & 0,6111 & 0,5556 \\ \hline
+        5 & \textit{Grass-pasture} & 483 & 36 & 0,9722 & 0,9444 \\ \hline
+        6 & \textit{Grass-trees} & 730 & 54 & 0,9815 & 1,0000 \\ \hline
+        7 & \textit{Grass-pasture-mowed} & 28 & 2 & 1,0000 & 1,0000 \\ \hline
+        8 & \textit{Hay-windrowed} & 478 & 36 & 1,0000 & 1,0000 \\ \hline
+        9 & \textit{Oats} & 20 & 2 & 0,0000 & 0,5000 \\ \hline
+        10 & \textit{Soybean-notill} & 972 & 73 & 0,8082 & 0,8082 \\ \hline
+        11 & \textit{Soybean-mintill} & 2.455 & 184 & 0,9565 & 0,9130 \\ \hline
+        12 & \textit{Soybean-clean} & 593 & 45 & 0,9111 & 0,8667 \\ \hline
+        13 & \textit{Wheat} & 205 & 15 & 1,0000 & 1,0000 \\ \hline
+        14 & \textit{Woods} & 1.265 & 95 & 0,9895 & 0,9684 \\ \hline
+        15 & \textit{Buildings-Grass-Trees-Drives} & 386 & 29 & 0,8621 & 0,8621 \\ \hline
+        16 & \textit{Stone-Steel-Towers} & 93 & 7 & 1,0000 & 0,8571 \\ \hline
+         & \textbf{Média (AA)} & 10.249 & 769 & 0,8625 & 0,8717 \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Nomes das classes como distribuídos com a cena}
+    \caption*{Fonte: Elaborada pelo autor. Nomes das classes como distribuídos com a cena. CNN original: a do notebook de \citeonline{Souza2023}, usada só nesta comparação. No teste, a CNN do projeto erra 66 das 769 amostras, e a original, 80}
     \label{tab:porClasse}
 \end{table}
 
 \begin{figure}[H]
     \centering
     \captionsetup{justification=centering}
-    \caption{Matriz de confusão do teste em Indian Pines, com a configuração original (semente 42)}
+    \caption{Matriz de confusão do teste em Indian Pines na linha de base (CNN do projeto, semente 42)}
     \includegraphics[width=0.72\textwidth]{assets/resultados/matriz_confusao.pdf}
     \captionsetup{justification=raggedright}
     \caption*{Fonte: Elaborada pelo autor. Cada célula traz o número de amostras; a cor, a fração da classe real. Classes numeradas como na \autoref{tab:porClasse}}
@@ -79,36 +80,37 @@ Este apêndice reúne as tabelas de detalhe dos resultados do \autoref{cap:resul
 
 \begin{table}[H]
     \centering
-    \caption{Pixels com rótulo diferente entre chamadas do LSC com a mesma imagem e os mesmos parâmetros}
-    \begin{tabular}{|l|c|c|c|}
+    \small
+    \caption{Pixels com rótulo diferente entre chamadas do LSC com a mesma imagem e os mesmos parâmetros, e tempo por segmentação}
+    \begin{tabular}{|l|c|c|c|c|}
         \hline
         \rowcolor[HTML]{C0C0C0}
-        \textbf{Cena} & \textbf{Threads do OpenCV} & \textbf{Pixels diferentes} & \textbf{Fração da cena} \\
+        \textbf{Cena} & \textbf{Threads do OpenCV} & \textbf{Pixels diferentes} & \textbf{Fração da cena} & \textbf{Tempo (ms)} \\
         \hline
-        Indian Pines & 32 & 401 a 623 & 1,91\% a 2,96\% \\ \hline
-         & 1 & 0 & 0 \\ \hline
-        University of Pavia & 32 & 222 a 556 & 0,11\% a 0,27\% \\ \hline
-         & 1 & 0 & 0 \\ \hline
+        Indian Pines & 32 & 188 a 322 & 0,89\% a 1,53\% & 14,8 \\ \cline{2-5}
+         & 1 & 0 & 0 & 35,6 \\ \hline
+        University of Pavia & 32 & 142 a 330 & 0,07\% a 0,16\% & 83,6 \\ \cline{2-5}
+         & 1 & 0 & 0 & 289,7 \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Catorze chamadas, em duas passadas de 7, comparadas com a primeira chamada de cada passada, com os parâmetros padrão do LSC (\autoref{qua:paramSeg}), na mesma sessão dos tempos da \autoref{tab:estruturaSeg}; a cena tem 21.025 pixels em Indian Pines e 207.400 em University of Pavia}
+    \caption*{Fonte: Elaborada pelo autor. Medição avulsa, com o LSC calibrado para gerar o número de regiões do SEEDS (região de 16 pixels em Indian Pines e de 65 em University of Pavia, razão 0,075 e 10 iterações; \autoref{qua:paramSeg}); a cena tem 21.025 pixels em Indian Pines e 207.400 em University of Pavia}
     \label{tab:lsc}
 \end{table}
 
 \begin{table}[H]
     \centering
-    \caption{Memória retida por \textit{trial} da busca e projeção para uma campanha de 180 \textit{trials} sem liberação}
+    \caption{Memória retida por \textit{trial} da busca e projeção para uma campanha do tamanho da do experimento 04 (486 \textit{trials}) sem liberação}
     \begin{tabular}{|l|c|c|}
         \hline
         \rowcolor[HTML]{C0C0C0}
-        \textbf{Cena} & \textbf{Por \textit{trial} (MB)} & \textbf{180 \textit{trials} retidos (MB)} \\
+        \textbf{Cena} & \textbf{Por \textit{trial} (MB)} & \textbf{486 \textit{trials} retidos (MB)} \\
         \hline
-        Indian Pines & 2,5 & 450 \\ \hline
-        University of Pavia & 5,1 & 918 \\ \hline
-        Salinas Valley & 6,5 & 1.170 \\ \hline
+        Indian Pines & 2,5 & 1.215 \\ \hline
+        University of Pavia & 5,1 & 2.479 \\ \hline
+        Salinas Valley & 6,5 & 3.159 \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Com a liberação, a memória do processo cresceu 16 MB numa campanha de 180 \textit{trials} em Indian Pines}
+    \caption*{Fonte: Elaborada pelo autor. Por \textit{trial}: memória que cada \textit{trial} retinha ao guardar os próprios dados. Com a liberação, cada \textit{trial} guarda só as métricas e a configuração. \pendente{medição avulsa: crescimento da memória do processo numa campanha do experimento 04, com a liberação}}
     \label{tab:memoria}
 \end{table}
 
@@ -122,14 +124,14 @@ Este apêndice reúne as tabelas de detalhe dos resultados do \autoref{cap:resul
         \rowcolor[HTML]{C0C0C0}
         \textbf{Threads} & \textbf{Tempo (s)} & \textbf{\textit{Speedup} sobre 1 thread} \\
         \hline
-        1 & 8,55 & 1,00$\times$ \\ \hline
-        2 & 8,45 & 1,01$\times$ \\ \hline
-        4 & 7,90 & 1,08$\times$ \\ \hline
-        8 & 7,81 & 1,09$\times$ \\ \hline
-        16 & 11,67 & 0,73$\times$ \\ \hline
+        1 & -- & 1,00$\times$ \\ \hline
+        2 & -- & -- \\ \hline
+        4 & -- & -- \\ \hline
+        8 & -- & -- \\ \hline
+        16 & -- & -- \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Medição avulsa}
+    \caption*{Fonte: Elaborada pelo autor. Medição avulsa, com a CNN do projeto. \pendente{medição avulsa: tempo de 25 épocas em Indian Pines com 1, 2, 4, 8 e 16 threads do PyTorch, com a CNN do projeto}}
     \label{tab:threadsTorch}
 \end{table}
 
@@ -145,7 +147,7 @@ Este apêndice reúne as tabelas de detalhe dos resultados do \autoref{cap:resul
         Multiplicação de matrizes (código nativo) & 0,80 & 0,28 & 2,86$\times$ \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Medição avulsa}
+    \caption*{Fonte: Elaborada pelo autor. Medição avulsa, sem a CNN e sem os dados das cenas}
     \label{tab:gil}
 \end{table}
 
@@ -159,13 +161,14 @@ Este apêndice reúne as tabelas de detalhe dos resultados do \autoref{cap:resul
         \rowcolor[HTML]{C0C0C0}
         \textbf{$N$} & \textbf{Sequencial} & \textbf{Threads} & \textbf{Proc., frio} & \textbf{Proc., quente} & \textbf{Partida} & \textbf{Partida / frio} & \textbf{Aquecimento} \\
         \hline
-        2 & 13,58 & 8,45 & 11,08 & 7,31 & 3,77 & 34\% & 3,18 \\ \hline
-        4 & 12,96 & 21,39 & 9,12 & 4,51 & 4,61 & 51\% & 3,91 \\ \hline
-        8 & 12,29 & 54,14 & 9,01 & 3,34 & 5,67 & 63\% & 4,79 \\ \hline
-        16 & 12,81 & 56,59 & 12,95 & 2,86 & 10,09 & 78\% & 7,79 \\ \hline
+        2 & -- & -- & -- & -- & -- & -- & -- \\ \hline
+        4 & -- & -- & -- & -- & -- & -- & -- \\ \hline
+        8 & -- & -- & -- & -- & -- & -- & -- \\ \hline
+        16 & -- & -- & -- & -- & -- & -- & -- \\ \hline
+        32 & -- & -- & --- & --- & --- & --- & --- \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Médias de 3 repetições com pool quente e 2 com pool frio. Sequencial e threads com pool quente; o \textit{speedup} do pool frio na \autoref{tab:poolQuente} usa a execução sequencial correspondente, de 12,34 s a 13,55 s. Partida: tempo do pool frio menos o do pool quente}
+    \caption*{Fonte: Elaborada pelo autor. Médias de 3 repetições com pool quente e 2 com pool frio. Sequencial e threads com pool quente; o \textit{speedup} do pool frio na \autoref{tab:poolQuente} usa a execução sequencial medida no mesmo estado do pool. Partida: tempo do pool frio menos o do pool quente. Aquecimento: tempo para criar e aquecer o pool quente, fora do intervalo medido. Com $N$ = 32 não há execução em processos (\autoref{tab:particaoOA}). \pendente{experimento 07: tempos do bloco paralelo por executor e estado do pool, partida e aquecimento, de $N$ = 2 a 32}}
     \label{tab:poolTempos}
 \end{table}
 
@@ -179,14 +182,14 @@ Este apêndice reúne as tabelas de detalhe dos resultados do \autoref{cap:resul
         \rowcolor[HTML]{C0C0C0}
         \textbf{$N$} & \textbf{Treino por partição} & \textbf{OA, seq. e processos} & \textbf{OA, threads (mín.--máx.)} & \textbf{Partição sozinha (s)} & \textbf{Partição em processos (s)} & \textbf{Razão} \\
         \hline
-        2 & 4.355 & 0,9090 & 0,9012--0,9103 & 6,79 & 7,24 & 1,07 \\ \hline
-        4 & 2.177 & 0,9155 & 0,9116--0,9207 & 3,24 & 4,45 & 1,37 \\ \hline
-        8 & 1.088 & 0,9064 & 0,8999--0,9194 & 1,54 & 3,15 & 2,05 \\ \hline
-        16 & 544 & 0,8999 & 0,8921--0,9038 & 0,80 & 2,65 & 3,30 \\ \hline
-        32 & 272 & 0,8505 & 0,8296--0,8648 & 0,41 & --- & --- \\ \hline
+        2 & 4.356 & -- & -- & -- & -- & -- \\ \hline
+        4 & 2.178 & -- & -- & -- & -- & -- \\ \hline
+        8 & 1.089 & -- & -- & -- & -- & -- \\ \hline
+        16 & 544 & -- & -- & -- & -- & -- \\ \hline
+        32 & 272 & -- & -- & -- & --- & --- \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Treino por partição: média de amostras de treino em cada partição. Partição sozinha: tempo médio de uma partição na execução sequencial; em processos: com as $N$ executando juntas, no pool quente. Com $N$ = 32, só a execução sequencial, porque o pool de processos foi recusado por memória. No modo replicado, a OA foi 0,8830 em todas as execuções}
+    \caption*{Fonte: Elaborada pelo autor. Treino por partição: média de amostras de treino em cada partição. Partição sozinha: tempo médio de uma partição na execução sequencial; em processos: com as $N$ executando juntas, no pool quente. Com $N$ = 32 não há execução em processos: o experimento recusa um pool que não cabe na memória livre com 25\% de folga, e cada processo ocupa cerca de 481 MB. \pendente{experimento 07: OA sequencial e em processos, faixa da OA com threads, tempos por partição e a razão entre eles; OA do modo replicado}}
     \label{tab:particaoOA}
 \end{table}
 
@@ -200,12 +203,12 @@ Este apêndice reúne as tabelas de detalhe dos resultados do \autoref{cap:resul
         \rowcolor[HTML]{C0C0C0}
         \textbf{Cena} & \textbf{Posições} & \textbf{Execuções} & \textbf{Ids e classes iguais} & \textbf{OA de teste} & \textbf{Lote, 1 thread (s)} & \textbf{Lote, 16 threads (s)} & \textbf{\mbox{Segmentação} (s)} \\
         \hline
-        Indian Pines & 10.249 & 283 & 283 & 0,9051 & 0,330 & 0,196 & 0,111 \\ \hline
-        University of Pavia & 42.776 & 220 & 220 & 0,9772 & 1,050 & 0,876 & 0,869 \\ \hline
-        Salinas Valley & 54.129 & 220 & 220 & 0,9938 & 1,000 & 0,742 & 0,670 \\ \hline
+        Indian Pines & 10.249 & -- & -- & -- & -- & -- & -- \\ \hline
+        University of Pavia & 42.776 & -- & -- & -- & -- & -- & -- \\ \hline
+        Salinas Valley & 54.129 & -- & -- & -- & -- & -- & -- \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Execuções: todas as do experimento 14 na cena, incluindo lote e sequencial. Segmentação: ramo espacial executado por T0 (PCA de 3 componentes, composição RGB e SEEDS), média nas execuções sequenciais por blocos}
+    \caption*{Fonte: Elaborada pelo autor. Modelo: CNN do projeto com a configuração original, treinado uma vez por cena com o treino completo. Execuções: todas as do experimento 08 na cena, incluindo lote e sequencial. Segmentação: ramo espacial executado por T0 (PCA de 3 componentes, composição RGB e SEEDS), média nas execuções sequenciais por blocos. \pendente{experimento 08: execuções, conferência de ids e classes, OA de teste e tempos por cena; University of Pavia e Salinas Valley só entram se o 08 rodar nas três cenas}}
     \label{tab:fusaoConferencia}
 \end{table}
 
@@ -219,21 +222,23 @@ Este apêndice reúne as tabelas de detalhe dos resultados do \autoref{cap:resul
         \rowcolor[HTML]{C0C0C0}
         \textbf{Cena} & \textbf{Forma} & \textbf{Bloco} & \textbf{$N$ = 1} & \textbf{$N$ = 2} & \textbf{$N$ = 4} & \textbf{$N$ = 8} & \textbf{$N$ = 16} \\
         \hline
-        Indian Pines & como no esquema & 1 & 0,0 & 0,0 & 0,0 & 0,1 & 0,2 \\ \cline{3-8}
-         &  & 64 & 0,6 & 1,2 & 2,5 & 5,0 & 10,0 \\ \cline{3-8}
-         &  & 1.024 & 10,0 & 20,0 & 40,0 & 79,9 & 100,0 \\ \cline{2-8}
-         & desacoplada & 1 & 10,8 & 9,2 & 8,6 & 5,4 & 3,8 \\ \cline{3-8}
-         &  & 64 & 94,9 & 100,0 & 100,0 & 100,0 & 100,0 \\ \cline{3-8}
-         &  & 1.024 & 94,0 & 100,0 & 100,0 & 100,0 & 100,0 \\ \hline
-        University of Pavia & como no esquema & 64 & 0,1 & 0,3 & 0,6 & 1,2 & 2,4 \\ \cline{3-8}
-         &  & 1.024 & 2,4 & 4,8 & 9,6 & 19,2 & 38,3 \\ \cline{2-8}
-         & desacoplada & 64 e 1.024 & 100,0 & 100,0 & 100,0 & 100,0 & 100,0 \\ \hline
-        Salinas Valley & como no esquema & 64 & 0,1 & 0,2 & 0,5 & 0,9 & 1,9 \\ \cline{3-8}
-         &  & 1.024 & 1,9 & 3,8 & 7,6 & 15,1 & 30,3 \\ \cline{2-8}
-         & desacoplada & 64 e 1.024 & 100,0 & 100,0 & 100,0 & 100,0 & 100,0 \\ \hline
+        Indian Pines & como no esquema & 1 & -- & -- & -- & -- & -- \\ \cline{3-8}
+         &  & 64 & -- & -- & -- & -- & -- \\ \cline{3-8}
+         &  & 1.024 & -- & -- & -- & -- & -- \\ \cline{2-8}
+         & desacoplada & 1 & -- & -- & -- & -- & -- \\ \cline{3-8}
+         &  & 64 & -- & -- & -- & -- & -- \\ \cline{3-8}
+         &  & 1.024 & -- & -- & -- & -- & -- \\ \hline
+        University of Pavia & como no esquema & 64 & -- & -- & -- & -- & -- \\ \cline{3-8}
+         &  & 1.024 & -- & -- & -- & -- & -- \\ \cline{2-8}
+         & desacoplada & 64 & -- & -- & -- & -- & -- \\ \cline{3-8}
+         &  & 1.024 & -- & -- & -- & -- & -- \\ \hline
+        Salinas Valley & como no esquema & 64 & -- & -- & -- & -- & -- \\ \cline{3-8}
+         &  & 1.024 & -- & -- & -- & -- & -- \\ \cline{2-8}
+         & desacoplada & 64 & -- & -- & -- & -- & -- \\ \cline{3-8}
+         &  & 1.024 & -- & -- & -- & -- & -- \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Médias das repetições, com a seção crítica nas duas extensões}
+    \caption*{Fonte: Elaborada pelo autor. Médias das repetições, com a seção crítica nas duas extensões. Bloco de uma posição só em Indian Pines. \pendente{experimento 08: fração das posições cujas convoluções terminaram antes da publicação do mapa, por cena, forma, bloco e $N$}}
     \label{tab:fusaoSobreposicao}
 \end{table}
 
@@ -250,14 +255,14 @@ Este apêndice reúne as tabelas de detalhe dos resultados do \autoref{cap:resul
         \rowcolor[HTML]{C0C0C0}
         & \textbf{Esquema} & \textbf{Mínima} & \textbf{Esquema} & \textbf{Mínima} & \textbf{Esquema} & \textbf{Mínima} \\
         \hline
-        1 & 0,274 $\pm$ 0,036 & 0,304 $\pm$ 0,064 & 1,006 $\pm$ 0,090 & 1,053 $\pm$ 0,093 & 0,782 $\pm$ 0,024 & 0,869 $\pm$ 0,133 \\ \hline
-        2 & 0,201 $\pm$ 0,007 & 0,279 $\pm$ 0,065 & 0,885 $\pm$ 0,054 & 0,905 $\pm$ 0,053 & 0,706 $\pm$ 0,025 & 0,713 $\pm$ 0,049 \\ \hline
-        4 & 0,342 $\pm$ 0,016 & 0,363 $\pm$ 0,071 & 0,869 $\pm$ 0,079 & 0,895 $\pm$ 0,068 & 0,705 $\pm$ 0,056 & 0,688 $\pm$ 0,038 \\ \hline
-        8 & 0,164 $\pm$ 0,008 & 0,191 $\pm$ 0,036 & 0,948 $\pm$ 0,085 & 0,975 $\pm$ 0,085 & 0,666 $\pm$ 0,014 & 0,687 $\pm$ 0,036 \\ \hline
-        16 & 0,171 $\pm$ 0,006 & 0,173 $\pm$ 0,011 & 0,983 $\pm$ 0,086 & 0,986 $\pm$ 0,101 & 0,692 $\pm$ 0,045 & 0,692 $\pm$ 0,047 \\ \hline
+        1 & -- & -- & -- & -- & -- & -- \\ \hline
+        2 & -- & -- & -- & -- & -- & -- \\ \hline
+        4 & -- & -- & -- & -- & -- & -- \\ \hline
+        8 & -- & -- & -- & -- & -- & -- \\ \hline
+        16 & -- & -- & -- & -- & -- & -- \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Forma como no esquema; média e desvio de 5 repetições}
+    \caption*{Fonte: Elaborada pelo autor. Forma como no esquema; média e desvio de 5 repetições. \pendente{experimento 08: tempo de parede, média e desvio, com a seção crítica como no esquema e mínima, nas cenas em que o 08 rodar}}
     \label{tab:fusaoSecao}
 \end{table}
 
@@ -265,24 +270,24 @@ Este apêndice reúne as tabelas de detalhe dos resultados do \autoref{cap:resul
 
 \begin{table}[H]
     \centering
-    \caption{Diferença entre a melhor e a pior estratégia de busca, por orçamento de épocas (Indian Pines, 3 sementes)}
-    \begin{tabular}{|c|l|l|c|c|l|}
+    \caption{Diferença entre a otimização bayesiana e a busca em grade, por orçamento de épocas (Indian Pines, 27 \textit{trials}, 3 sementes, 10\% do treino)}
+    \begin{tabular}{|c|c|c|c|c|l|}
         \hline
         \rowcolor[HTML]{C0C0C0}
-        \textbf{Orçamento} & \textbf{Melhor} & \textbf{Pior} & \textbf{Diferença (pp)} & \textbf{Desvio comb. (pp)} & \textbf{Leitura} \\
+        \textbf{Orçamento} & \textbf{Grade} & \textbf{Bayesiana} & \textbf{Diferença (pp)} & \textbf{Desvio comb. (pp)} & \textbf{Leitura} \\
         \hline
-        10 épocas & Genética & Aleatória & 1,60 & 2,01 & ruído \\ \hline
-        40 épocas & Genética & Aleatória & 2,56 & 1,93 & ruído \\ \hline
-        200 épocas & Genética & Aleatória & 2,21 & 3,77 & ruído \\ \hline
+        10 épocas & -- & -- & -- & -- & -- \\ \hline
+        40 épocas & -- & -- & -- & -- & -- \\ \hline
+        200 épocas & -- & -- & -- & -- & -- \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Melhor validação de cada busca, média de 3 sementes (\autoref{tab:estrategias}); afirmável quando a diferença excede duas vezes o desvio combinado}
+    \caption*{Fonte: Elaborada pelo autor. Grade e Bayesiana: melhor validação de cada busca, média de 3 sementes (\autoref{tab:estrategias}). Diferença: otimização bayesiana menos busca em grade, afirmável quando excede duas vezes o desvio combinado. \pendente{experimento 04: melhor validação de cada estratégia por orçamento, diferença, desvio combinado e leitura}}
     \label{tab:estrategiasRuido}
 \end{table}
 
 \begin{table}[H]
     \centering
-    \caption{Como cada estratégia gastou os 20 \textit{trials} (Indian Pines, médias de 3 sementes)}
+    \caption{Como cada estratégia gastou os 27 \textit{trials} (Indian Pines, 10\% do treino, médias de 3 sementes)}
     \small
     \setlength{\tabcolsep}{3pt}
     \begin{tabular}{|c|l|C{1.8cm}|C{1.8cm}|C{1.8cm}|C{1.8cm}|}
@@ -290,57 +295,53 @@ Este apêndice reúne as tabelas de detalhe dos resultados do \autoref{cap:resul
         \rowcolor[HTML]{C0C0C0}
         \textbf{Orçamento} & \textbf{Estratégia} & \textbf{\textit{Trial} do melhor} & \textbf{Épocas por \textit{trial}} & \textbf{Treino da busca (s)} & \textbf{\textit{Trials} com SEEDS} \\
         \hline
-        10 épocas & Aleatória & 14,0 & 8,7 & 10,1 & 30\% \\
-        & TPE & 11,0 & 9,7 & 11,2 & 53\% \\
-        & Genética & 13,0 & 9,5 & 10,3 & 55\% \\ \hline
-        40 épocas & Aleatória & 6,7 & 36,2 & 38,5 & 30\% \\
-        & TPE & 6,7 & 35,8 & 32,4 & 33\% \\
-        & Genética & 16,0 & 36,9 & 33,2 & 38\% \\ \hline
-        200 épocas & Aleatória & 11,3 & 66,9 & 65,0 & 30\% \\
-        & TPE & 18,7 & 67,9 & 64,1 & 33\% \\
-        & Genética & 10,7 & 77,8 & 64,7 & 33\% \\ \hline
+        10 épocas & Grade & -- & -- & -- & 33\% \\
+        & Bayesiana & -- & -- & -- & -- \\ \hline
+        40 épocas & Grade & -- & -- & -- & 33\% \\
+        & Bayesiana & -- & -- & -- & -- \\ \hline
+        200 épocas & Grade & -- & -- & -- & 33\% \\
+        & Bayesiana & -- & -- & -- & -- \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. \textit{Trial} do melhor: posição, entre os 20, do \textit{trial} de maior validação. Épocas por \textit{trial}: épocas efetivamente treinadas, abaixo do teto quando a parada antecipada atua}
+    \caption*{Fonte: Elaborada pelo autor. \textit{Trial} do melhor: posição, entre os 27, do \textit{trial} de maior validação; na grade, a posição segue a ordem de enumeração. Épocas por \textit{trial}: épocas efetivamente treinadas, abaixo do teto quando a parada antecipada (paciência de 3 épocas no orçamento de 10 e de 10 nos demais) ou a meta de 0,95 de validação atua. Na grade, 9 dos 27 \textit{trials} usam o SEEDS por construção. \pendente{experimento 04: posição do melhor \textit{trial}, épocas por \textit{trial}, tempo de treino da busca e fração de \textit{trials} com SEEDS na otimização bayesiana}}
     \label{tab:estrategiasCusto}
 \end{table}
 
 \begin{table}[H]
     \centering
-    \caption{Acurácia de validação média por valor de cada hiperparâmetro (540 \textit{trials} do experimento 08, Indian Pines)}
+    \caption{Acurácia de validação média por valor de cada hiperparâmetro (486 \textit{trials} do experimento 04, Indian Pines, 10\% do treino)}
     \begin{tabular}{|l|l|c|c|c|}
         \hline
         \rowcolor[HTML]{C0C0C0}
         \textbf{Hiperparâmetro} & \textbf{Valor} & \textbf{Validação média} & \textbf{\textit{Trials}} & \textbf{Amplitude (pp)} \\
         \hline
-        \multirow{3}{*}{Dropout} & 0,20 & 0,6927 & 220 & \multirow{3}{*}{18,10} \\ \cline{2-4}
-         & 0,35 & 0,6368 & 194 &  \\ \cline{2-4}
-         & \textbf{0,50} & 0,5117 & 126 &  \\ \hline
-        \multirow{3}{*}{Taxa de aprendizado} & 0,0003 & 0,5162 & 120 & \multirow{3}{*}{15,26} \\ \cline{2-4}
-         & \textbf{0,001} & 0,6592 & 254 &  \\ \cline{2-4}
-         & 0,003 & 0,6688 & 166 &  \\ \hline
-        \multirow{4}{*}{Segmentador} & \textbf{SEEDS} & 0,6925 & 202 & \multirow{4}{*}{14,89} \\ \cline{2-4}
-         & SLIC & 0,5436 & 90 &  \\ \cline{2-4}
-         & LSC & 0,6356 & 148 &  \\ \cline{2-4}
-         & Watershed & 0,5752 & 100 &  \\ \hline
-        \multirow{3}{*}{Componentes do PCA} & 15 & 0,5750 & 153 & \multirow{3}{*}{8,35} \\ \cline{2-4}
-         & \textbf{30} & 0,6585 & 174 &  \\ \cline{2-4}
-         & 45 & 0,6472 & 213 &  \\ \hline
-        \multirow{3}{*}{\textit{Weight decay}} & \textbf{0} & 0,6497 & 196 & \multirow{3}{*}{4,55} \\ \cline{2-4}
-         & $10^{-5}$ & 0,6339 & 176 &  \\ \cline{2-4}
-         & $10^{-4}$ & 0,6042 & 168 &  \\ \hline
-        \multirow{3}{*}{Tamanho do lote} & \textbf{32} & 0,6186 & 160 & \multirow{3}{*}{1,81} \\ \cline{2-4}
-         & 64 & 0,6343 & 221 &  \\ \cline{2-4}
-         & 128 & 0,6367 & 159 &  \\ \hline
+        \multirow{3}{*}{Dropout} & 0,20 & -- & -- & \multirow{3}{*}{--} \\ \cline{2-4}
+         & 0,35 & -- & -- &  \\ \cline{2-4}
+         & \textbf{0,50} & -- & -- &  \\ \hline
+        \multirow{3}{*}{Taxa de aprendizado} & 0,0003 & -- & -- & \multirow{3}{*}{--} \\ \cline{2-4}
+         & \textbf{0,001} & -- & -- &  \\ \cline{2-4}
+         & 0,003 & -- & -- &  \\ \hline
+        \multirow{3}{*}{Segmentador} & \textbf{SEEDS} & -- & -- & \multirow{3}{*}{--} \\ \cline{2-4}
+         & LSC & -- & -- &  \\ \cline{2-4}
+         & Watershed & -- & -- &  \\ \hline
+        \multirow{3}{*}{Componentes do PCA} & 15 & -- & -- & \multirow{3}{*}{--} \\ \cline{2-4}
+         & \textbf{30} & -- & -- &  \\ \cline{2-4}
+         & 45 & -- & -- &  \\ \hline
+        \multirow{3}{*}{\textit{Weight decay}} & \textbf{0} & -- & -- & \multirow{3}{*}{--} \\ \cline{2-4}
+         & $10^{-5}$ & -- & -- &  \\ \cline{2-4}
+         & $10^{-4}$ & -- & -- &  \\ \hline
+        \multirow{3}{*}{Tamanho do lote} & \textbf{32} & -- & -- & \multirow{3}{*}{--} \\ \cline{2-4}
+         & 64 & -- & -- &  \\ \cline{2-4}
+         & 128 & -- & -- &  \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Em negrito, o valor da configuração original. Amplitude: diferença entre o melhor e o pior valor do hiperparâmetro}
+    \caption*{Fonte: Elaborada pelo autor. Em negrito, o valor da configuração original. Amplitude: diferença entre o melhor e o pior valor do hiperparâmetro. Na busca em grade, \textit{weight decay}, lote e componentes do PCA ficam no valor original; os outros valores desses eixos só aparecem na otimização bayesiana. \pendente{experimento 04: validação média e número de \textit{trials} por valor de cada eixo e amplitude, com os eixos ordenados pela amplitude}}
     \label{tab:eixos}
 \end{table}
 
 \begin{table}[H]
     \centering
-    \caption{Configuração original contra configuração otimizada em AA, Kappa e épocas treinadas (Indian Pines, 5 sementes, 10\% do treino)}
+    \caption{Hiperparâmetros originais contra os otimizados no experimento 03, por segmentador, em AA, Kappa e épocas treinadas (Indian Pines, CNN do projeto, 5 sementes, treino completo)}
     \small
     \setlength{\tabcolsep}{3pt}
     \begin{tabular}{|l|l|c|c|C{1.3cm}|C{1.3cm}|l|}
@@ -348,21 +349,18 @@ Este apêndice reúne as tabelas de detalhe dos resultados do \autoref{cap:resul
         \rowcolor[HTML]{C0C0C0}
         \textbf{Segmentador} & \textbf{Métrica} & \textbf{Original} & \textbf{Otimizada} & \textbf{Ganho (pp)} & \textbf{Limiar (pp)} & \textbf{Leitura} \\
         \hline
-        \multirow{3}{*}{SEEDS} & AA & 0,5903 $\pm$ 0,0307 & 0,6985 $\pm$ 0,0443 & +10,81 & 10,78 & afirmável \\ \cline{2-7}
-         & Kappa & 0,7058 $\pm$ 0,0203 & 0,7910 $\pm$ 0,0131 & +8,52 & 4,83 & afirmável \\ \cline{2-7}
-         & Épocas & 53,0 & 80,4 &  &  &  \\ \hline
-        \multirow{3}{*}{SLIC} & AA & 0,4071 $\pm$ 0,1550 & 0,4835 $\pm$ 0,1707 & +7,64 & 46,12 & ruído \\ \cline{2-7}
-         & Kappa & 0,5342 $\pm$ 0,2087 & 0,5839 $\pm$ 0,2211 & +4,97 & 60,81 & ruído \\ \cline{2-7}
-         & Épocas & 71,0 & 115,4 &  &  &  \\ \hline
-        \multirow{3}{*}{LSC} & AA & 0,4343 $\pm$ 0,0501 & 0,6104 $\pm$ 0,0298 & +17,61 & 11,67 & afirmável \\ \cline{2-7}
-         & Kappa & 0,6294 $\pm$ 0,0469 & 0,7310 $\pm$ 0,0256 & +10,16 & 10,69 & ruído \\ \cline{2-7}
-         & Épocas & 73,0 & 64,6 &  &  &  \\ \hline
-        \multirow{3}{*}{Watershed} & AA & 0,3847 $\pm$ 0,1534 & 0,4224 $\pm$ 0,2582 & +3,77 & 60,07 & ruído \\ \cline{2-7}
-         & Kappa & 0,5056 $\pm$ 0,2118 & 0,4777 $\pm$ 0,2847 & $-$2,79 & 70,98 & ruído \\ \cline{2-7}
-         & Épocas & 82,2 & 72,4 &  &  &  \\ \hline
+        \multirow{3}{*}{SEEDS} & AA & -- & -- & -- & -- & -- \\ \cline{2-7}
+         & Kappa & -- & -- & -- & -- & -- \\ \cline{2-7}
+         & Épocas & -- & -- &  &  &  \\ \hline
+        \multirow{3}{*}{LSC} & AA & -- & -- & -- & -- & -- \\ \cline{2-7}
+         & Kappa & -- & -- & -- & -- & -- \\ \cline{2-7}
+         & Épocas & -- & -- &  &  &  \\ \hline
+        \multirow{3}{*}{Watershed} & AA & -- & -- & -- & -- & -- \\ \cline{2-7}
+         & Kappa & -- & -- & -- & -- & -- \\ \cline{2-7}
+         & Épocas & -- & -- &  &  &  \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Limiar: duas vezes o desvio combinado das duas configurações. Épocas: média das épocas treinadas até a parada}
+    \caption*{Fonte: Elaborada pelo autor. Original: taxa de aprendizado $10^{-3}$, \textit{dropout} 0,5, sem \textit{weight decay}, lote 32 e 30 componentes, com a configuração padrão do segmentador. Limiar: duas vezes o desvio combinado das duas configurações. Épocas: média das épocas treinadas até a parada. As duas configurações usam a CNN do projeto; a diferença entre ela e a CNN de \citeonline{Souza2023}, ambas com SEEDS e os hiperparâmetros originais, está na comparação do experimento 01 (\autoref{tab:linhaBase}). \pendente{experimento 05: AA, Kappa e épocas das duas configurações por segmentador, com ganho, limiar e leitura}}
     \label{tab:impactoHPOCompleto}
 \end{table}
 
@@ -370,7 +368,7 @@ Este apêndice reúne as tabelas de detalhe dos resultados do \autoref{cap:resul
 
 \begin{table}[H]
     \centering
-    \caption{AA, Kappa e diferença de OA para o SEEDS sob otimização conjunta (5 sementes, 10\% do treino)}
+    \caption{AA, Kappa e diferença de OA para o SEEDS sob otimização conjunta (16 \textit{trials} de otimização bayesiana por segmentador, 5 sementes, treino completo)}
     \footnotesize
     \setlength{\tabcolsep}{3pt}
     \begin{tabular}{|l|l|c|c|C{1.4cm}|C{1.2cm}|l|}
@@ -378,20 +376,17 @@ Este apêndice reúne as tabelas de detalhe dos resultados do \autoref{cap:resul
         \rowcolor[HTML]{C0C0C0}
         \textbf{Cena} & \textbf{Segmentador} & \textbf{AA} & \textbf{Kappa} & \textbf{Dif. de OA (pp)} & \textbf{Limiar (pp)} & \textbf{Leitura} \\
         \hline
-        \multirow{4}{*}{Indian Pines} & SEEDS & 0,6985 $\pm$ 0,0443 & 0,7910 $\pm$ 0,0131 & --- & --- & referência \\ \cline{2-7}
-         & SLIC & 0,4835 $\pm$ 0,1707 & 0,5839 $\pm$ 0,2211 & $-$17,63 & 37,19 & ruído \\ \cline{2-7}
-         & LSC & 0,6104 $\pm$ 0,0298 & 0,7310 $\pm$ 0,0256 & $-$5,18 & 4,95 & afirmável \\ \cline{2-7}
-         & Watershed & 0,4224 $\pm$ 0,2582 & 0,4777 $\pm$ 0,2847 & $-$25,28 & 45,15 & ruído \\ \hline
-        \multirow{4}{*}{University of Pavia} & SEEDS & 0,9323 $\pm$ 0,0116 & 0,9358 $\pm$ 0,0055 & --- & --- & referência \\ \cline{2-7}
-         & SLIC & 0,9249 $\pm$ 0,0092 & 0,9381 $\pm$ 0,0051 & +0,19 & 1,14 & ruído \\ \cline{2-7}
-         & LSC & 0,7422 $\pm$ 0,3156 & 0,7283 $\pm$ 0,3642 & $-$11,82 & 39,73 & ruído \\ \cline{2-7}
-         & Watershed & 0,9394 $\pm$ 0,0122 & 0,9410 $\pm$ 0,0026 & +0,41 & 0,93 & ruído \\ \hline
-        \multirow{4}{*}{Salinas Valley} & SEEDS & 0,9497 $\pm$ 0,0155 & 0,9590 $\pm$ 0,0084 & --- & --- & referência \\ \cline{2-7}
-         & SLIC & 0,9122 $\pm$ 0,0060 & 0,9445 $\pm$ 0,0050 & $-$1,31 & 1,76 & ruído \\ \cline{2-7}
-         & LSC & 0,9493 $\pm$ 0,0098 & 0,9453 $\pm$ 0,0060 & $-$1,23 & 1,86 & ruído \\ \cline{2-7}
-         & Watershed & 0,9321 $\pm$ 0,0183 & 0,9440 $\pm$ 0,0052 & $-$1,35 & 1,77 & ruído \\ \hline
+        \multirow{3}{*}{Indian Pines} & SEEDS & 0,9361 $\pm$ 0,0162 & 0,9229 $\pm$ 0,0070 & --- & --- & referência \\ \cline{2-7}
+         & LSC & 0,8895 $\pm$ 0,0181 & 0,9031 $\pm$ 0,0052 & $-$1,72 & 1,52 & afirmável \\ \cline{2-7}
+         & Watershed & -- & -- & -- & -- & -- \\ \hline
+        \multirow{3}{*}{University of Pavia} & SEEDS & -- & -- & --- & --- & referência \\ \cline{2-7}
+         & LSC & -- & -- & -- & -- & -- \\ \cline{2-7}
+         & Watershed & -- & -- & -- & -- & -- \\ \hline
+        \multirow{3}{*}{Salinas Valley} & SEEDS & -- & -- & --- & --- & referência \\ \cline{2-7}
+         & LSC & -- & -- & -- & -- & -- \\ \cline{2-7}
+         & Watershed & -- & -- & -- & -- & -- \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Limiar: duas vezes o desvio combinado do segmentador e do SEEDS. Em University of Pavia, o LSC colapsou em uma das cinco sementes}
+    \caption*{Fonte: Elaborada pelo autor. Limiar: duas vezes o desvio combinado do segmentador e do SEEDS. Em Indian Pines, a OA foi de 0,9324 $\pm$ 0,0062 com o SEEDS e de 0,9152 $\pm$ 0,0045 com o LSC. \pendente{experimento 03: Watershed em Indian Pines e os três segmentadores em University of Pavia e Salinas Valley}}
     \label{tab:segmentadoresCompleto}
 \end{table}

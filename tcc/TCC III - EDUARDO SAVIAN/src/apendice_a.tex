@@ -1,15 +1,15 @@
 \chapter{Configurações Vencedoras da Otimização Conjunta}
 \label{ap:configuracoes}
 
-A \autoref{tab:configuracoesVencedoras} lista, para cada cena e segmentador, a configuração escolhida pela busca TPE (\autoref{sec:desHPO}) no experimento 06: 16 \textit{trials} por segmentador, 10\% do treino, teto de 200 épocas, parada por estagnação de 10 épocas, meta de acurácia de validação de 0,95 e seleção pela acurácia de validação. A coluna da configuração do segmentador indica qual das três configurações que o espaço de busca oferece a cada algoritmo, a padrão e duas variações em torno dela (\autoref{qua:espaco}), foi escolhida. A configuração vencedora foi retreinada com 5 sementes, também com 10\% do treino e sob as mesmas regras de parada; por isso, a OA de teste da tabela não é comparável em valor absoluto à da \autoref{tab:linhaBase}, obtida com o treino completo.
+A \autoref{tab:configuracoesVencedoras} lista, para cada cena e segmentador, a configuração escolhida pela otimização bayesiana com processo gaussiano (\autoref{sec:desHPO}) no experimento 03: 16 \textit{trials} por segmentador, os quatro primeiros sorteados, treino completo (85\% das amostras), teto de 200 épocas, parada após 10 épocas sem que a acurácia de validação melhore 0,001 e seleção pela acurácia de validação. A coluna da configuração do segmentador indica qual das três configurações do espaço de busca foi escolhida: a padrão, que no SEEDS é a do original e no LSC e no Watershed gera o mesmo número de regiões que o SEEDS, ou uma das duas variações em torno dela (\autoref{qua:espaco}). A configuração vencedora foi retreinada com 5 sementes sob as mesmas regras; como treino e parada são os da linha de base, a OA de teste é comparável à da \autoref{tab:linhaBase}, que é de uma única semente.
 
-Em Indian Pines, os desvios de 0,19 no SLIC e de 0,23 no Watershed vêm de sementes em que o treino colapsa (\autoref{sec:resHPO}): o SLIC obteve OA de 0,27 em uma das cinco sementes, e o Watershed, de 0,32 e 0,26 em duas, com o treino encerrado por estagnação antes da 20.ª época. Nas demais sementes, a OA ficou entre 0,70 e 0,77 no SLIC e entre 0,72 e 0,76 no Watershed. Em University of Pavia, o LSC colapsou da mesma forma em uma das cinco sementes: a rede previu uma única classe, com OA de 0,44 e Kappa 0, e o treino parou na 11.ª época, sem melhorar depois da primeira; nas outras quatro, a OA ficou entre 0,93 e 0,94.
+Em Indian Pines, nos dois segmentadores já medidos, a busca manteve a configuração padrão do segmentador e escolheu os mesmos hiperparâmetros da CNN: taxa de aprendizado de 0,0003, \textit{dropout} de 0,2, sem \textit{weight decay}, lote 64 e 15 componentes do PCA, metade dos 30 da configuração original. A melhor validação da busca ficou 1,6 ponto acima da OA média de teste no SEEDS e 2,4 no LSC, o efeito esperado de escolher o melhor de 16 \textit{trials} pela própria validação. O desvio de OA entre as cinco sementes ficou abaixo de 0,7 ponto nos dois. \pendente{experimento 03: linha do Watershed em Indian Pines e linhas de University of Pavia e Salinas Valley; se alguma configuração tiver desvio alto entre sementes, descrever as sementes em que o treino colapsa}
 
-A coluna Épocas traz a média de épocas treinadas no retreino. Como a parada por estagnação exige pelo menos 11 épocas, médias menores só ocorrem quando a meta de 0,95 interrompe o treino em pelo menos uma semente: é o caso do SEEDS em Salinas Valley (2,8 épocas) e de SEEDS e Watershed em University of Pavia (9,8 e 9,4). Nas demais configurações dessas duas cenas (12,2 a 71,0 épocas), a média não permite separar as sementes que pararam pela meta das que pararam por estagnação. Quando a meta interrompe o treino, a OA de teste é a de um modelo parado perto de 0,95 de validação, e não a que a configuração alcançaria sem a meta, que não foi medida; por isso, as diferenças de até 1,35 ponto entre segmentadores em University of Pavia e Salinas Valley, isto é, todas menos a do LSC em University of Pavia, que vem do colapso de uma semente, devem ser lidas com essa ressalva. No LSC, as cinco sementes de Salinas Valley pararam pela meta, e as de University of Pavia, por estagnação.
+A coluna Épocas traz a média de épocas treinadas no retreino. Sem meta de validação, o treino para após 10 épocas sem melhora ou no teto de 200; em Indian Pines, as médias foram de 69,6 épocas no SEEDS e 82,6 no LSC, acima das 60 do notebook original. \pendente{experimento 03: médias de épocas das demais linhas}
 
 \begin{table}[H]
     \centering
-    \caption{Configurações vencedoras por cena e segmentador (experimento 06; 5 sementes, 10\% do treino)}
+    \caption{Configurações vencedoras por cena e segmentador (experimento 03; 5 sementes, treino completo)}
     \footnotesize
     \setlength{\tabcolsep}{1.2pt}
     \begin{tabular}{|l|c|c|C{0.9cm}|c|c|l|c|c|c|}
@@ -19,36 +19,30 @@ A coluna Épocas traz a média de épocas treinadas no retreino. Como a parada p
         \hline
         \multicolumn{10}{|l|}{\cellcolor[HTML]{EFEFEF}\textbf{Indian Pines}} \\
         \hline
-        SEEDS & 0,001 & 0,35 & 0 & 64 & 15 & 350 sp., 200 it., \textit{prior} 2 & 0,8544 & 80,4 & 0,8174\,$\pm$\,0,0112 \\
+        SEEDS & 0,0003 & 0,20 & 0 & 64 & 15 & 350 sp., 200 it., \textit{prior} 2 & 0,9480 & 69,6 & 0,9324\,$\pm$\,0,0062 \\
         \hline
-        SLIC & 0,0003 & 0,20 & $10^{-4}$ & 128 & 30 & 5 px & 0,7685 & 115,4 & 0,6411\,$\pm$\,0,1856 \\
+        LSC & 0,0003 & 0,20 & 0 & 64 & 15 & 16 px; razão 0,075 & 0,9389 & 82,6 & 0,9152\,$\pm$\,0,0045 \\
         \hline
-        LSC & 0,0003 & 0,35 & 0 & 32 & 30 & 11 px; razão 0,12 & 0,7906 & 64,6 & 0,7657\,$\pm$\,0,0220 \\
-        \hline
-        Watershed & 0,001 & 0,35 & 0 & 64 & 15 & 350 marcadores & 0,7711 & 72,4 & 0,5646\,$\pm$\,0,2255 \\
+        Watershed & -- & -- & -- & -- & -- & -- & -- & -- & -- \\
         \hline
         \multicolumn{10}{|l|}{\cellcolor[HTML]{EFEFEF}\textbf{University of Pavia}} \\
         \hline
-        SEEDS & 0,001 & 0,20 & 0 & 32 & 22 & 150 sp., 150 it., \textit{prior} 1 & 0,9586 & 9,8 & 0,9515\,$\pm$\,0,0042 \\
+        SEEDS & -- & -- & -- & -- & -- & -- & -- & -- & -- \\
         \hline
-        SLIC & 0,001 & 0,20 & 0 & 32 & 22 & 12 px & 0,9626 & 22,2 & 0,9534\,$\pm$\,0,0039 \\
+        LSC & -- & -- & -- & -- & -- & -- & -- & -- & -- \\
         \hline
-        LSC & 0,003 & 0,20 & $10^{-4}$ & 128 & 22 & 9 px; razão 0,04 & 0,9395 & 49,0 & 0,8333\,$\pm$\,0,1986 \\
-        \hline
-        Watershed & 0,003 & 0,20 & $10^{-5}$ & 128 & 22 & 350 marcadores & 0,9564 & 9,4 & 0,9555\,$\pm$\,0,0020 \\
+        Watershed & -- & -- & -- & -- & -- & -- & -- & -- & -- \\
         \hline
         \multicolumn{10}{|l|}{\cellcolor[HTML]{EFEFEF}\textbf{Salinas Valley}} \\
         \hline
-        SEEDS & 0,003 & 0,35 & $10^{-5}$ & 64 & 22 & 150 sp., 150 it., \textit{prior} 1 & 0,9764 & 2,8 & 0,9632\,$\pm$\,0,0076 \\
+        SEEDS & -- & -- & -- & -- & -- & -- & -- & -- & -- \\
         \hline
-        SLIC & 0,003 & 0,50 & $10^{-4}$ & 128 & 22 & 12 px & 0,9663 & 32,2 & 0,9501\,$\pm$\,0,0045 \\
+        LSC & -- & -- & -- & -- & -- & -- & -- & -- & -- \\
         \hline
-        LSC & 0,001 & 0,35 & $10^{-5}$ & 64 & 15 & 9 px; razão 0,04 & 0,9564 & 71,0 & 0,9509\,$\pm$\,0,0054 \\
-        \hline
-        Watershed & 0,001 & 0,35 & $10^{-5}$ & 64 & 15 & 350 marcadores & 0,9576 & 12,2 & 0,9497\,$\pm$\,0,0046 \\
+        Watershed & -- & -- & -- & -- & -- & -- & -- & -- & -- \\
         \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Taxa: taxa de aprendizado. Configuração do segmentador: no SEEDS, superpixels pedidos (sp.), iterações (it.) e \textit{prior}; no SLIC e no LSC, lado aproximado da região em pixels e, no LSC, a razão; no Watershed, o número de marcadores. Validação da busca: melhor acurácia de validação entre os \textit{trials}; épocas: média das épocas treinadas no retreino.}
+    \caption*{Fonte: Elaborada pelo autor. Taxa: taxa de aprendizado. Configuração do segmentador: no SEEDS, superpixels pedidos (sp.), iterações (it.) e \textit{prior}; no LSC, lado da região em pixels e razão; no Watershed, o número de marcadores, dispostos em grade. Comp. do PCA: 15, 30 ou 45 em Indian Pines e 8, 15 ou 22 nas outras cenas. Validação da busca: melhor acurácia de validação entre os \textit{trials}; épocas: média das épocas treinadas no retreino; OA de teste: média e desvio padrão entre as 5 sementes.}
     \label{tab:configuracoesVencedoras}
 \end{table}

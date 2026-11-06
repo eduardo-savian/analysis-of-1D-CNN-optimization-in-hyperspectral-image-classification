@@ -7,7 +7,7 @@ A fusão de dados espaciais e espectrais melhora a classificação de HSIs \cite
 
 O processamento paralelo é uma estratégia consolidada para acelerar aplicações de aprendizado profundo \cite{Aach2025, Nandan10910577}, e as GPUs, com milhares de núcleos de processamento, executam simultaneamente operações independentes, como os elementos de um mapa de características de uma convolução \cite{CUDA_Programming, Jorda_cuDNN}. Na arquitetura de \citeonline{Souza2023} há ainda uma independência de outra natureza: a segmentação espacial e a extração de características espectrais só se encontram no ponto de fusão e poderiam ser executadas concorrentemente.
 
-Este trabalho parte, portanto, da arquitetura de \citeonline{Souza2023} e a otimiza em quatro eixos: a organização do código, o paralelismo, a automação do ajuste de hiperparâmetros e a avaliação de outros algoritmos de segmentação. Os três últimos correspondem a trabalhos futuros sugeridos pelo próprio autor \cite{Souza2023}; o primeiro é pré-requisito para que os ganhos dos demais sejam atribuíveis. O ganho de cada eixo é medido contra uma referência própria, sempre com a fusão SEEDS.
+Este trabalho parte, portanto, da implementação de \citeonline{Souza2023} e a otimiza em quatro eixos: a organização do código, o paralelismo, a automação do ajuste de hiperparâmetros e a avaliação de outros algoritmos de segmentação. Os três últimos correspondem a trabalhos futuros sugeridos pelo próprio autor \cite{Souza2023}; o primeiro é pré-requisito para que os ganhos dos demais sejam atribuíveis. Em todos os eixos, a rede é a CNN 1D definida no projeto (\autoref{cap:proj}), com quatro convoluções de 16 a 128 filtros, \textit{max-pooling} e camadas densas de 256 e 128 neurônios; a CNN original aparece apenas como comparação na linha de base. Os ganhos de acurácia são medidos contra a configuração original, isto é, os hiperparâmetros de \citeonline{Souza2023} com a fusão SEEDS, e os de tempo, contra a mesma etapa executada sem a estratégia avaliada.
 
 \section{Problematização}
 \label{sec:problematizacao}
@@ -19,7 +19,7 @@ Há um problema anterior a esses três: para que qualquer otimização seja atri
 \subsection{Solução Proposta}
 \label{subsec:solucao}
 
-A solução proposta consiste em reimplementar o trabalho de \citeonline{Souza2023} em um pacote Python modular e determinístico, que preserve a arquitetura da rede, o PCA, a divisão dos dados e os hiperparâmetros de treino do original, e, sobre essa base, implementar e medir: (\textit{i}) estratégias de paralelismo entre os ramos do pré-processamento, por partição da cena e na fusão concorrente; (\textit{ii}) a busca automática de hiperparâmetros da CNN e do segmentador; e (\textit{iii}) a comparação de quatro algoritmos de segmentação sob otimização conjunta.
+A solução proposta consiste em reimplementar o trabalho de \citeonline{Souza2023} em um pacote Python modular e determinístico, que preserve o PCA, a divisão dos dados e os hiperparâmetros de treino do original e use a CNN 1D definida no projeto, e, sobre essa base, implementar e medir: (\textit{i}) estratégias de paralelismo por partição da cena e na fusão concorrente, que sobrepõe a segmentação à extração das características espectrais; (\textit{ii}) a busca automática de hiperparâmetros da CNN e do segmentador, por busca em grade e por Otimização Bayesiana com processo gaussiano; e (\textit{iii}) a comparação de três algoritmos de segmentação (SEEDS, LSC e Watershed), com o LSC e o Watershed calibrados para gerar o mesmo número de regiões que o SEEDS, com a configuração original e sob otimização conjunta com a CNN.
 
 \section{Objetivos}
 
@@ -31,11 +31,11 @@ Analisar o impacto de técnicas de segmentação, parametrização automática e
 \subsection{Objetivos Específicos}
 
 \begin{enumerate}
-    \item Reimplementar a arquitetura de \citeonline{Souza2023} de forma modular e reprodutível, preservando o PCA, a divisão dos dados e os hiperparâmetros de treino da implementação original e garantindo resultados idênticos entre execuções com a mesma configuração;
+    \item Reimplementar o fluxo de classificação de \citeonline{Souza2023} de forma modular e reprodutível, com a CNN 1D definida no projeto, preservando o PCA, a divisão dos dados e os hiperparâmetros de treino da implementação original e garantindo resultados idênticos entre execuções com a mesma configuração;
 
-    \item Explorar algoritmos de segmentação espacial (SEEDS, SLIC, LSC, Watershed) para o processamento de HSIs e avaliar seu impacto na classificação;
+    \item Explorar algoritmos de segmentação espacial (SEEDS, LSC e Watershed) para o processamento de HSIs e avaliar seu impacto na classificação;
 
-    \item Implementar métodos de ajuste automático de hiperparâmetros (busca aleatória, Otimização Bayesiana e algoritmo genético) para a arquitetura de classificação;
+    \item Implementar métodos de ajuste automático de hiperparâmetros (busca em grade e Otimização Bayesiana com processo gaussiano) para a arquitetura de classificação;
 
     \item Implementar estratégias de processamento paralelo para acelerar as etapas de segmentação e classificação espectral, explorando a independência de dados entre elas e a execução concorrente via threads e processos;
 
@@ -46,7 +46,7 @@ Analisar o impacto de técnicas de segmentação, parametrização automática e
 
 Quanto aos objetivos, a pesquisa é exploratória e descritiva \cite{Gil2002}. A abordagem é quantitativa, e as conclusões foram obtidas de maneira indutiva, a partir da comparação das métricas de desempenho entre configurações.
 
-Foi realizada uma pesquisa bibliográfica sobre aprendizado profundo \cite{DeeplearningLC, DeepLearningIG}, processamento de imagens hiperespectrais \cite{Li2019DeepLF, Ahmad_2025, Qian2020}, redes neurais convolucionais \cite{Gradient-basedlearningappliedtodocumentrecognition, NIPS2012_c399862d}, otimização de hiperparâmetros \cite{WU201926, liashchynskyi2019gridsearchrandomsearch, Bergstra2012Random, Bergstra2011TPE}, segmentação de imagens \cite{bergh2013seedssuperpixelsextractedenergydriven, Achanta2012SLIC, Zhengqin7298741, Najman546254}, concorrência \cite{Silberschatz2018, Amdahl1967} e paralelização computacional \cite{Aach2025, Nandan10910577, CUDA_Programming}. Em seguida, o trabalho original foi reimplementado em PyTorch, e as técnicas escolhidas foram implementadas sobre essa base. A avaliação foi feita por uma campanha experimental com três conjuntos de dados de referência (Indian Pines, University of Pavia e Salinas Valley), organizada em experimentos retomáveis cujos resultados ficam registrados em arquivos versionados.
+Foi realizada uma pesquisa bibliográfica sobre aprendizado profundo \cite{DeeplearningLC, DeepLearningIG}, processamento de imagens hiperespectrais \cite{Li2019DeepLF, Ahmad_2025, Qian2020}, redes neurais convolucionais \cite{Gradient-basedlearningappliedtodocumentrecognition, NIPS2012_c399862d}, otimização de hiperparâmetros \cite{WU201926, liashchynskyi2019gridsearchrandomsearch, Akiba2019Optuna}, segmentação de imagens \cite{bergh2013seedssuperpixelsextractedenergydriven, Zhengqin7298741, Najman546254}, concorrência \cite{Silberschatz2018, Amdahl1967} e paralelização computacional \cite{Aach2025, Nandan10910577, CUDA_Programming}. Em seguida, o trabalho original foi reimplementado em PyTorch, com a CNN 1D do projeto, e as técnicas escolhidas foram implementadas sobre essa base, com as variáveis de execução reunidas em um único arquivo de configuração. A avaliação foi feita por uma campanha experimental com três conjuntos de dados de referência (Indian Pines, University of Pavia e Salinas Valley), organizada em oito experimentos, numerados de 01 a 08, cujos resultados ficam registrados em arquivos versionados.
 
 \section{Estrutura do Trabalho}
 

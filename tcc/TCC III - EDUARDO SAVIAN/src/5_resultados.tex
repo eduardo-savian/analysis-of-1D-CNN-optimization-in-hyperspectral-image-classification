@@ -1,85 +1,64 @@
 \chapter{Resultados}
 \label{cap:resultados}
 
-Este capítulo apresenta o protocolo de execução, a linha de base e os resultados de cada eixo de otimização, seguidos da verificação dos requisitos e da discussão. As tabelas de detalhe estão no \autoref{ap:complementares}.
+Este capítulo apresenta o protocolo de execução, a linha de base (experimento 01) e os resultados de cada eixo de otimização: a organização do código, os segmentadores (experimentos 02 e 03), a automação de hiperparâmetros (04 e 05) e o paralelismo (06 a 08), seguidos da verificação dos requisitos e da discussão. Os experimentos estão descritos no \autoref{qua:experimentos}, e as tabelas de detalhe, no \autoref{ap:complementares}.
 
 \section{Protocolo de Execução}
 \label{sec:resProtocolo}
 
-Todos os experimentos foram executados no ambiente da \autoref{sec:ambiente}, em modo determinístico. As acurácias são médias de execuções com sementes distintas (5 nos retreinos finais e 3 nas comparações de estratégias, na fração do treino e na análise do identificador), com o desvio padrão populacional entre elas; a comparação com o trabalho original e as medições de paralelismo usam uma única semente (42). Nas medições de paralelismo em CPU, o PyTorch foi restrito a uma thread interna, salvo onde indicado, e os pools foram criados e aquecidos fora do intervalo medido. Os experimentos de hiperparâmetros e de segmentadores treinam com 10\% do treino (871 amostras em Indian Pines), com teto de 200 épocas, paciência de 10 épocas e meta de validação de 0,95, e a validação e o teste permanecem inteiros (\autoref{tab:dadosCenas}). Os demais usam o treino completo.
+Todos os experimentos foram executados no ambiente da \autoref{sec:ambiente}, em modo determinístico. Salvo a comparação do experimento 01, que também executa a CNN de \citeonline{Souza2023}, todos usam a CNN do projeto (\autoref{tab:camadas}), com os hiperparâmetros de treino do original quando não são objeto de busca: taxa de aprendizado 0,001, \textit{dropout} 0,5, sem \textit{weight decay}, lote 32 e os componentes do PCA do notebook, 30 em Indian Pines e 15 nas outras cenas. As acurácias são médias de execuções com sementes distintas (5 nos experimentos 02, 03 e 05; 3 nas buscas do experimento 04 e na partição do experimento 06), com o desvio padrão populacional entre elas; a linha de base (01), o pool frio e quente (07) e a fusão concorrente (08) usam uma única semente (42). Uma diferença entre duas configurações é afirmável quando excede duas vezes o desvio combinado, a raiz da soma dos quadrados dos desvios das duas.
+
+Apenas a comparação entre as estratégias de busca (experimento 04) treina com 10\% do treino (871 amostras em Indian Pines), para caber os 486 \textit{trials}, com meta de validação de 0,95 e teto de 10, 40 ou 200 épocas por \textit{trial} (paciência de 3 épocas com o teto de 10); suas acurácias não se comparam às do treino completo. Os demais experimentos usam o treino completo, com teto de 200 épocas, paciência de 10 épocas e sem meta, exceto a partição da cena (06 e 07), com teto de 25 épocas e lote 64. Em todos, a validação e o teste permanecem inteiros (\autoref{tab:dadosCenas}). Nas medições de paralelismo em CPU, o PyTorch foi restrito a uma thread interna, salvo onde indicado, e, exceto no pool frio do experimento 07 e na partição do experimento 06, os pools foram criados e aquecidos fora do intervalo medido.
 
 \section{Linha de Base}
 \label{sec:resLinhaBase}
 
-Com a configuração do notebook, a reimplementação obtém em University of Pavia OA 0,9772, AA 0,9644 e Kappa 0,9698, e repete esses valores, o histórico de perda e os pesos finais em execuções sucessivas. A execução registrada no notebook original, que não fixa a semente do treino, obteve OA 0,9819, AA 0,9735 e Kappa 0,9760; como os dois frameworks não partem dos mesmos pesos, a diferença de 0,47 ponto entre uma execução de cada lado não separa o efeito da implementação do da inicialização. O que sustenta as comparações seguintes é que a reimplementação preserva a arquitetura, o PCA, a divisão dos dados e os hiperparâmetros de treino, e que cada configuração produz sempre o mesmo resultado.
+Com a CNN e os hiperparâmetros do notebook, a reimplementação obtém em University of Pavia OA 0,9853, AA 0,9781 e Kappa 0,9806 (semente 42). A execução registrada no notebook original, que não fixa a semente do treino, obteve OA 0,9819, AA 0,9735 e Kappa 0,9760. Como os espectros reduzidos, os identificadores e a divisão são os mesmos do notebook, a diferença de 0,34 ponto vem dos pesos iniciais e do framework, e uma execução de cada lado não separa os dois efeitos. Executada de novo com a mesma semente, a CNN de \citeonline{Souza2023} repete OA, AA, Kappa e o número de épocas nas três cenas, e a do projeto, em Indian Pines (\autoref{qua:reprodutibilidade}). O que sustenta as comparações seguintes é que a reimplementação reproduz o PCA, a divisão dos dados e os hiperparâmetros de treino do original, com os mesmos dados do notebook, e que cada configuração produz sempre o mesmo resultado. A partir daqui, a CNN é a do projeto, que mantém os \textit{kernels} e a fusão do original e difere dele no número de filtros da quarta convolução, no \textit{max-pooling} e nas camadas densas (\autoref{tab:camadas}).
 
-A \autoref{tab:linhaBase} compara a configuração original, com a política de parada da \autoref{subsec:desTreino} e o treino completo, com os valores reportados por \citeonline{Souza2023}. Os valores originais são superiores por menos de 1 ponto de OA em Indian Pines e Salinas Valley, 1,6 ponto em University of Pavia e 7,2 pontos de AA em Indian Pines, o que é coerente com o ajuste da parada antecipada por conjunto de dados relatado pelo autor \cite{Souza2023}, enquanto aqui a mesma política vale para as três cenas.
+A \autoref{tab:linhaBase} compara os valores reportados por \citeonline{Souza2023} com os da reimplementação, com a CNN do original e com a do projeto, ambas com os hiperparâmetros originais, o SEEDS, a política de parada da \autoref{subsec:desTreino} e o treino completo (experimento 01). Com a CNN do original, os valores reportados são superiores por 1,82 ponto de OA e 2,39 de AA em Indian Pines, 0,75 de OA em University of Pavia e 0,14 em Salinas Valley, o que é coerente com o ajuste da parada antecipada por conjunto de dados relatado pelo autor \cite{Souza2023}, enquanto aqui a mesma política vale para as três cenas. A CNN do projeto, linha de base dos demais experimentos, iguala a OA reportada em Indian Pines (0,9142) e fica 0,87 e 0,27 ponto abaixo em University of Pavia e Salinas Valley. Entre as duas redes, a do projeto tem 1,82 ponto de OA a mais em Indian Pines, 66 erros contra 80 nos 769 pixels de teste, e 0,12 ponto a menos nas outras duas cenas; com uma semente, essas diferenças não têm o desvio que o critério da \autoref{sec:resProtocolo} exige, e a igualdade com o valor reportado em Indian Pines vale como coincidência de uma execução.
 
 \begin{table}[H]
     \centering
-    \caption{Configuração original: valores reportados no trabalho de referência e obtidos pela reimplementação}
-    \begin{tabular}{|p{0.20\textwidth}|c|c|c|c|c|c|}
+    \caption{Valores reportados no trabalho de referência e obtidos pela reimplementação, com a CNN de Souza (2023) e a do projeto}
+    \begin{tabular}{|l|l|c|c|c|c|}
         \hline
         \rowcolor[HTML]{C0C0C0}
-        & \multicolumn{3}{c|}{\textbf{Reportado}} & \multicolumn{3}{c|}{\textbf{Reimplementação}} \\
+        \textbf{Cena} & \textbf{Origem} & \textbf{OA} & \textbf{AA} & \textbf{Kappa} & \textbf{Épocas} \\
         \hline
-        \rowcolor[HTML]{C0C0C0}
-        \textbf{Cena} & \textbf{OA} & \textbf{AA} & \textbf{Kappa} & \textbf{OA} & \textbf{AA} & \textbf{Kappa} \\
+        Indian Pines & Reportado & 0,9142 & 0,8956 & 0,9019 & --- \\
+                     & CNN de Souza (2023) & 0,8960 & 0,8717 & 0,8813 & 63 (53) \\
+                     & CNN do projeto & 0,9142 & 0,8625 & 0,9020 & 52 (42) \\
         \hline
-        Indian Pines & 0,9142 & 0,8956 & 0,9019 & 0,9051 & 0,8237 & 0,8914 \\
+        University of Pavia & Reportado & 0,9928 & 0,9866 & 0,9905 & --- \\
+                            & CNN de Souza (2023) & 0,9853 & 0,9781 & 0,9806 & 30 (20) \\
+                            & CNN do projeto & 0,9841 & 0,9771 & 0,9789 & 26 (16) \\
         \hline
-        University of Pavia & 0,9928 & 0,9866 & 0,9905 & 0,9772 & 0,9644 & 0,9698 \\
-        \hline
-        Salinas Valley & 0,9965 & 0,9970 & 0,9962 & 0,9938 & 0,9956 & 0,9931 \\
+        Salinas Valley & Reportado & 0,9965 & 0,9970 & 0,9962 & --- \\
+                       & CNN de Souza (2023) & 0,9951 & 0,9959 & 0,9945 & 25 (15) \\
+                       & CNN do projeto & 0,9938 & 0,9931 & 0,9931 & 29 (19) \\
         \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor, com os valores reportados por \citeonline{Souza2023}. Reimplementação: semente 42, treino completo}
+    \caption*{Fonte: Elaborada pelo autor, com os valores reportados por \citeonline{Souza2023}. Reimplementação: experimento 01, hiperparâmetros originais, SEEDS, semente 42 e treino completo. Épocas: épocas treinadas e, entre parênteses, a melhor, cujos pesos são restaurados; ---: não informado no trabalho de referência}
     \label{tab:linhaBase}
 \end{table}
 
-A distância entre OA e AA em Indian Pines vem das classes raras (\autoref{tab:porClasse}): \textit{Alfalfa}, com 3 amostras de teste, não teve nenhum acerto, e \textit{Oats}, com 2, acertou uma. A \autoref{fig:mapaClassificacao} mostra as classes previstas sobre a cena; 60 dos 73 erros do teste ocorrem entre as classes de milho e de soja, cujos espectros são próximos (\autoref{fig:matrizConfusao}).
+Com a CNN do projeto, a distância de 5,2 pontos entre OA e AA em Indian Pines vem de uma classe rara (\autoref{tab:porClasse}): \textit{Oats}, com 2 amostras de teste, não teve acerto e, sozinha, tira 6,25 pontos da AA; \textit{Alfalfa}, com 4, acertou todas. É também essa classe que deixa a AA da CNN do projeto 0,92 ponto abaixo da do original, que acertou uma das duas amostras. A \autoref{fig:mapaClassificacao} mostra as classes previstas sobre a cena; 56 dos 66 erros do teste ocorrem entre as classes de milho e de soja, cujos espectros são próximos (\autoref{fig:matrizConfusao}).
 
 \begin{figure}[H]
     \centering
     \captionsetup{justification=centering}
-    \caption{Verdade terrestre, classes previstas e acertos no teste em Indian Pines, com a configuração original (semente 42)}
+    \caption{Verdade terrestre, classes previstas e acertos no teste em Indian Pines, na linha de base com a CNN do projeto (semente 42)}
     \includegraphics[width=\textwidth]{assets/resultados/mapa_classificacao.pdf}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. As classes previstas incluem os pixels de treino e de validação; acertos e erros são apenas os do teste. Classes numeradas como na \autoref{tab:porClasse}}
+    \caption*{Fonte: Elaborada pelo autor. Experimento 01, hiperparâmetros originais e treino completo. As classes previstas incluem os pixels de treino e de validação; acertos e erros são apenas os do teste. Classes numeradas como na \autoref{tab:porClasse}}
     \label{fig:mapaClassificacao}
 \end{figure}
-
-Com 10\% do treino, a configuração original perde 14,3 pontos de OA e 23,0 de AA, e o tempo por execução cai de 34,3 s para 6,0 s (\autoref{tab:fracaoTreino}). Os resultados com essa fração são comparáveis entre si, mas não aos da \autoref{tab:linhaBase}.
-
-\begin{table}[H]
-    \centering
-    \caption{Custo de treinar com uma fração do conjunto de treino (Indian Pines, 3 sementes, teto de 60 épocas)}
-    \begin{tabular}{|c|c|c|c|c|c|}
-        \hline
-        \rowcolor[HTML]{C0C0C0}
-        \textbf{Fração} & \textbf{Amostras} & \textbf{OA} & \textbf{AA} & \textbf{Kappa} & \textbf{Tempo (s)} \\
-        \hline
-        100\% & 8.711 & 0,9016 $\pm$ 0,0016 & 0,8308 & 0,8877 & 34,3 \\
-        \hline
-        50\% & 4.356 & 0,8643 $\pm$ 0,0140 & 0,7310 & 0,8448 & 18,8 \\
-        \hline
-        25\% & 2.179 & 0,8270 $\pm$ 0,0105 & 0,6755 & 0,8021 & 11,4 \\
-        \hline
-        10\% & 871 & 0,7586 $\pm$ 0,0109 & 0,6006 & 0,7227 & 6,0 \\
-        \hline
-        5\% & 435 & 0,6810 $\pm$ 0,0131 & 0,5322 & 0,6334 & 4,0 \\
-        \hline
-    \end{tabular}
-    \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor}
-    \label{tab:fracaoTreino}
-\end{table}
 
 \section{Organização do Código}
 \label{sec:resOrganizacao}
 
-O resultado deste eixo é uma reimplementação fiel ao original e reprodutível. O \autoref{qua:reprodutibilidade} reúne as conferências que sustentam isso; a única que não se repete, o treino de partições em threads, é explicada adiante. A organização também tornou visíveis três defeitos, dois que contaminariam resultados em silêncio e um que interrompia a campanha.
+O resultado deste eixo é uma reimplementação fiel ao original e reprodutível. O código é separado por etapa e por pilar, o notebook só chama o pacote, e as variáveis de execução ficam em um único arquivo de configuração, lido pelo notebook, pela linha de comando e pelos experimentos. O \autoref{qua:reprodutibilidade} reúne as conferências que sustentam a reprodutibilidade; a única que não se repete, o treino de partições em threads, é explicada adiante. A organização também tornou visíveis duas divergências entre a reimplementação e o notebook, que mudavam os dados, e três defeitos, dois que contaminariam resultados em silêncio e um que interrompia a campanha.
 
 \begin{quadro}[H]
     \centering
@@ -89,255 +68,67 @@ O resultado deste eixo é uma reimplementação fiel ao original e reprodutível
         \rowcolor[HTML]{C0C0C0}
         \textbf{Conferência} & \textbf{Condição} & \textbf{Resultado} \\
         \hline
-        Mesma configuração executada duas vezes & Indian Pines, configuração original, semente 42 & Mesmo histórico de perda, mesmos pesos finais e mesmas previsões; OA 0,9051 nas duas \\ \hline
-        Ramos em sequência, em threads e em processo & Indian Pines, com SEEDS, LSC e Watershed & Mesmos espectros reduzidos, mesmos identificadores e mesma divisão nos três modos \\ \hline
-        LSC com uma thread do OpenCV & Catorze chamadas com a mesma imagem, em Indian Pines e University of Pavia & Rótulos idênticos em todas (\autoref{tab:lsc}) \\ \hline
-        Partição da cena, sequencial e em processos & Indian Pines, $N$ = 2, 4, 8 e 16, 10 execuções por $N$ & Mesma OA em todas as execuções de cada $N$ (\autoref{tab:particaoOA}) \\ \hline
-        Partição da cena em threads & As mesmas condições & OA varia até 1,95 ponto entre execuções idênticas, e até 3,51 com $N$ = 32 \\ \hline
-        Modo replicado da partição & Indian Pines, $N$ = 2 a 32, sequencial e threads & OA 0,8830 nas 50 execuções \\ \hline
-        Fusão concorrente & 723 execuções nas três cenas & Identificadores e classes idênticos aos do lote (\autoref{tab:fusaoConferencia}) \\ \hline
-        Busca de hiperparâmetros executada de novo & Experimento 08, Indian Pines, 10 épocas, semente 11, as três estratégias (60 \textit{trials}) & Mesmos candidatos, na mesma ordem, e mesmas validações gravadas no experimento \\ \hline
-        Experimento 10 executado de novo & Indian Pines, semente 11, configurações original e otimizada & Mesma OA e mesmo número de épocas gravados, nas quatro execuções \\ \hline
-        Experimentos 05 e 06 executados de novo & SEEDS, SLIC e Watershed com a CNN fixa em Indian Pines e SEEDS e SLIC em University of Pavia (5 sementes), e três retreinos do experimento 06 em University of Pavia e Salinas Valley & Mesmas médias de OA e de Kappa da execução de setembro; retreinos idênticos \\ \hline
-        LSC corrigido treinado duas vezes & Os 15 retreinos dos vencedores do LSC no experimento 06, nas três cenas & Mesmas OA, AA e Kappa nas duas execuções \\ \hline
+        Mesma configuração executada duas vezes & Hiperparâmetros originais e semente 42: CNN de Souza (2023) nas três cenas e CNN do projeto em Indian Pines & Mesmas OA, AA, Kappa e número de épocas nas duas execuções; em Indian Pines, OA 0,8960 e 0,9142 \pendente{experimento 01: comparar também o histórico de perda e os pesos finais} \\ \hline
+        Ramos em sequência e em threads & Indian Pines, com SEEDS, LSC e Watershed & -- \pendente{conferência avulsa com o código atual: mesmos espectros reduzidos, identificadores e divisão nos dois modos} \\ \hline
+        LSC com uma thread do OpenCV & Chamadas repetidas com a mesma imagem, em Indian Pines e University of Pavia & Rótulos idênticos em todas (\autoref{tab:lsc}) \\ \hline
+        Partição da cena, sequencial e em processos & Indian Pines, $N$ = 2, 4, 8 e 16, 10 execuções por $N$ & -- \pendente{experimento 07: mesma OA em todas as execuções de cada $N$ (\autoref{tab:particaoOA})} \\ \hline
+        Partição da cena em threads & As mesmas condições, e $N$ = 32 & -- \pendente{experimento 07: variação máxima da OA entre execuções idênticas} \\ \hline
+        Modo replicado da partição & Indian Pines, $N$ = 2 a 32, sequencial e threads & -- \pendente{experimento 07: OA nas 50 execuções} \\ \hline
+        Fusão concorrente & Todas as execuções do experimento 08 & -- \pendente{experimento 08: identificadores e classes iguais aos do lote (\autoref{tab:fusaoConferencia})} \\ \hline
+        Busca de hiperparâmetros executada de novo & Experimento 04, Indian Pines, 10 épocas, semente 11, as duas estratégias (54 \textit{trials}) & -- \pendente{experimento 04: mesmos candidatos, na mesma ordem, e mesmas validações} \\ \hline
+        Vencedores do experimento 03 retreinados no experimento 05 & Indian Pines, SEEDS, LSC e Watershed, as mesmas 5 sementes & -- \pendente{experimento 05: mesmas OA, AA e Kappa do experimento 03} \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
     \caption*{Fonte: Elaborado pelo autor}
     \label{qua:reprodutibilidade}
 \end{quadro}
 
-\textbf{Não determinismo do LSC.} A implementação paralela do LSC no OpenCV desempata pela ordem das threads: com 32 threads, chamadas com a mesma imagem e os mesmos parâmetros diferem em 401 a 623 pixels em Indian Pines e em 222 a 556 em University of Pavia (\autoref{tab:lsc}). Com o LSC no espaço de busca, a pontuação de um mesmo \textit{trial} variava, e as estratégias adaptativas amplificavam a variação: a mesma campanha de TPE chegou a 0,8713 de validação em uma execução e a 0,7711 em outra. O defeito foi corrigido restringindo o OpenCV a uma thread, o que deixa o LSC cerca de três vezes mais lento em Indian Pines e quatro em University of Pavia: 42,7 ms por segmentação em Indian Pines, contra 14,1 ms com 32 threads, e 309,4 ms contra 82,4 ms em University of Pavia (medianas de 14 chamadas). Na busca, isso acrescenta cerca de 0,23 s a cada \textit{trial} com o LSC em University of Pavia. As medições que envolviam o LSC foram refeitas com a correção.
+\textbf{Divergências do PCA e da divisão.} A partir da versão 1.5, o PCA do scikit-learn usa outro algoritmo e decide o sinal das componentes de outra forma; no PCA de 3 componentes, isso inverte um canal da composição RGB e muda a segmentação do SEEDS em Indian Pines e University of Pavia. A segunda divisão do notebook estratifica pelos rótulos em \textit{one-hot}, e não pelos inteiros, o que muda o sorteio da validação e do teste. A reimplementação passou a reproduzir as duas, e os espectros reduzidos, os identificadores e a divisão ficaram idênticos aos do notebook.
 
-\textbf{Gerador aleatório compartilhado entre threads.} Partições treinadas em threads de um mesmo processo consomem o mesmo gerador aleatório global do PyTorch em ordem imprevisível, e execuções idênticas variaram até 3,51 pontos de OA. Processos têm um gerador cada; por isso, toda acurácia de partição reportada vem de execuções sequenciais ou em processos.
+\textbf{Não determinismo do LSC.} A implementação paralela do LSC no OpenCV desempata pela ordem das threads: com 32 threads, chamadas com a mesma imagem e os mesmos parâmetros diferem em 188 a 322 pixels em Indian Pines e em 142 a 330 em University of Pavia (\autoref{tab:lsc}). Com o LSC no espaço de busca, a pontuação de um mesmo \textit{trial} variava entre execuções, e uma estratégia que escolhe o próximo candidato pelas pontuações anteriores, como a Otimização Bayesiana, propaga essa variação para toda a busca. O defeito foi corrigido restringindo o OpenCV a uma thread, o que deixa o LSC 2,4 vezes mais lento em Indian Pines e 3,5 vezes em University of Pavia: 35,6 ms por segmentação, contra 14,8 ms com 32 threads, e 289,7 ms contra 83,6 ms. Na busca, isso acrescenta cerca de 0,21 s a cada \textit{trial} com o LSC em University of Pavia.
 
-\textbf{Número mínimo de componentes.} As opções de PCA da busca usavam o piso da composição RGB (3 componentes), e não o da rede (15); em University of Pavia e Salinas Valley, a opção de 8 componentes interrompia a campanha com um erro do PyTorch que apontava para a convolução, e não para a causa. O piso passou a ser derivado dos \textit{kernels} da rede.
+\textbf{Gerador aleatório compartilhado entre threads.} Partições treinadas em threads de um mesmo processo consomem o mesmo gerador aleatório global do PyTorch em ordem imprevisível, e execuções idênticas obtêm OA diferentes \pendente{experimento 07: variação máxima da OA entre execuções idênticas com threads}. Processos têm um gerador cada, e a execução sequencial não o disputa; por isso, toda acurácia de partição reportada vem de execuções sequenciais ou em processos \pendente{experimento 06: OA da partição com executor sequencial ou em processos; o código ainda usa threads no modo independente}.
 
-Quanto à memória, cada \textit{trial} retinha de 2,5 MB a 6,5 MB conforme a cena (\autoref{tab:memoria}); com a liberação dos resultados que não são o melhor corrente, a memória do processo cresceu 16 MB numa campanha de 180 \textit{trials} (de 1.894 MB para 1.910 MB).
+\textbf{Número mínimo de componentes.} As opções de PCA da busca usavam o piso da composição RGB (3 componentes), e não o da rede; com a CNN de \citeonline{Souza2023}, que sem \textit{padding} consome 14 posições e exige ao menos 15 componentes, a opção de 8 componentes em University of Pavia e Salinas Valley interrompia a campanha com um erro do PyTorch que apontava para a convolução, e não para a causa. O piso passou a ser derivado da arquitetura: 15 componentes na CNN de \citeonline{Souza2023} e 8 na do projeto, cujos três \textit{max-poolings} dividem o comprimento por 8.
 
-\section{Paralelismo}
-\label{sec:resParalelismo}
-
-\subsection{Entre os Ramos do Pré-processamento}
-
-O ramo espacial, que contém a segmentação, domina o pré-processamento (78\% a 93\% do tempo sequencial), e o teto do paralelismo entre os ramos fica entre 1,08$\times$ e 1,29$\times$ (\autoref{tab:ramos}). Com threads, Salinas Valley atinge 1,22$\times$, no limite do teto de 1,21$\times$; Indian Pines fica em 1,05$\times$, e em University of Pavia a sobrecarga anula o ganho (0,95$\times$). Com processos, criar o filho e serializar de 8,4 MB a 45,3 MB tornam o pré-processamento de 1,3 a 4,5 vezes mais lento. Há ainda um limite mais forte: em Indian Pines, o pré-processamento leva 0,193 s, contra 20,13 s de treino, e é 0,9\% da execução, o que motivou paralelizar o treino.
-
-\begin{table}[H]
-    \centering
-    \caption{Paralelismo entre os ramos do pré-processamento (5 repetições, tempos em segundos)}
-    \small
-    \setlength{\tabcolsep}{4pt}
-    \begin{tabular}{|l|c|c|c|c|c|c|C{1.4cm}|}
-        \hline
-        \rowcolor[HTML]{C0C0C0}
-        \textbf{Cena} & \textbf{Espectral} & \textbf{Espacial} & \textbf{Sequencial} & \textbf{Threads} & \textbf{Processos} & \textbf{Teto} & \textbf{Ao filho (MB)} \\
-        \hline
-        Indian Pines & 0,037 & 0,129 & 0,166 & 1,05$\times$ & 0,22$\times$ & 1,29$\times$ & 8,4 \\
-        \hline
-        University of Pavia & 0,072 & 0,899 & 0,971 & 0,95$\times$ & 0,75$\times$ & 1,08$\times$ & 42,7 \\
-        \hline
-        Salinas Valley & 0,142 & 0,680 & 0,822 & 1,22$\times$ & 0,74$\times$ & 1,21$\times$ & 45,3 \\
-        \hline
-    \end{tabular}
-    \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Teto: tempo sequencial dividido pelo tempo do ramo espacial. Como o teto é calculado com tempos médios, uma medição pode ficar ligeiramente acima dele, como em Salinas Valley. Ao filho: dados serializados para o processo filho no modo com processos}
-    \label{tab:ramos}
-\end{table}
-
-O paralelismo dentro das operações do PyTorch também não ajuda neste problema: em CPU, 25 épocas em Indian Pines levaram 8,55 s com uma thread e 11,67 s com as 16 padrão; e o GIL impede que código Python em threads ganhe tempo, embora não limite o código nativo (\autoref{tab:threadsTorch} e \autoref{tab:gil}).
-
-\subsection{Por Partição da Cena}
-
-A \autoref{tab:poolQuente} mostra o \textit{speedup} da partição no modo independente, em que cada partição treina o seu modelo, contra a execução sequencial das mesmas partições na CPU (experimento 13; lote 64, 25 épocas e uma thread do PyTorch por partição).
-
-\begin{table}[H]
-    \centering
-    \caption{\textit{Speedup} da partição da cena sobre a execução sequencial das mesmas partições (Indian Pines, 25 épocas)}
-    \begin{tabular}{|p{0.32\textwidth}|c|c|c|c|}
-        \hline
-        \rowcolor[HTML]{C0C0C0}
-        \textbf{Executor} & \textbf{N = 2} & \textbf{N = 4} & \textbf{N = 8} & \textbf{N = 16} \\
-        \hline
-        Threads & 1,61$\times$ & 0,61$\times$ & 0,23$\times$ & 0,23$\times$ \\
-        \hline
-        Processos, pool frio & 1,20$\times$ & 1,46$\times$ & 1,37$\times$ & 1,05$\times$ \\
-        \hline
-        Processos, pool quente & 1,86$\times$ & 2,87$\times$ & 3,68$\times$ & 4,47$\times$ \\
-        \hline
-    \end{tabular}
-    \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor}
-    \label{tab:poolQuente}
-\end{table}
-
-Threads não escalam no treino: o laço de treino de uma rede pequena é dominado por código Python, que disputa o GIL, e a partir de 4 partições as threads ficam mais lentas que a execução sequencial. A forma de medir decide a conclusão: com o pool criado dentro da medição, a partida de $N$ interpretadores chega a 78\% do tempo em $N = 16$, e o \textit{speedup} parece nulo (1,05$\times$); com o pool aquecido, o mesmo arranjo entrega 4,47$\times$ (\autoref{tab:poolTempos}). O desenho escala, mas a máquina não acompanha: uma partição que leva 0,80 s sozinha leva 2,65 s com 16 executando juntas, 3,30 vezes mais, provavelmente pela disputa de banda de memória e de \textit{cache}, que não foi medida diretamente.
-
-Em processos, a OA é idêntica à da execução sequencial para $N = 2$ a 16 (\autoref{tab:particaoOA}). O paralelismo por processos esbarra em memória antes de esbarrar em núcleos: cada processo ocupa cerca de 481 MB, e 32 processos, que exigiriam 15,4 GB em uma máquina de 15,8 GB, foram recusados antes de executar. Com 32 partições restam cerca de 272 amostras de treino em cada uma, e a OA cai para 0,850, contra 0,900 a 0,915 com 2 a 16; essas acurácias, de modelos com lote 64, 25 épocas e uma semente, servem apenas para comparar números de partições. No modo replicado, um único modelo infere as partições e a OA é a do modelo único (0,883), mas a inferência é 0,4\% da execução.
-
-\subsection{Fusão Concorrente}
-\label{subsec:resFusao}
-
-A fusão concorrente foi medida na inferência de todos os pixels rotulados das três cenas, com o modelo da configuração original treinado com o treino completo, contra duas referências: o lote, que segmenta e depois infere tudo de uma vez, com uma e com 16 threads do PyTorch, e a execução sequencial por blocos. Foram medidas as duas formas da \autoref{subsec:fusaoConcorrente}, com 1 a 16 threads de trabalho, blocos de 1, 64 e 1.024 posições (o de uma posição só em Indian Pines) e as duas extensões da seção crítica, com 5 repetições (3 com bloco de uma posição). Nas 723 execuções, os identificadores lidos do mapa foram os do treino, e as classes previstas, idênticas às do lote (\autoref{tab:fusaoConferencia}). O teto do esquema é a razão entre o tempo do lote e o do ramo espacial de T0, que faz o PCA de 3 componentes, a composição RGB e o SEEDS: 2,98$\times$ em Indian Pines, onde esse ramo leva 0,111 s, e apenas 1,21$\times$ e 1,49$\times$ em University of Pavia e Salinas Valley, onde ele leva 0,869 s e 0,670 s e domina o lote.
-
-\begin{table}[!htbp]
-    \centering
-    \caption{\textit{Speedup} da fusão concorrente sobre o lote com uma thread do PyTorch, por número de threads de trabalho}
-    \resizebox{\textwidth}{!}{%
-    \begin{tabular}{|l|l|c|c|c|c|c|c|}
-        \hline
-        \rowcolor[HTML]{C0C0C0}
-        \textbf{Cena} & \textbf{Configuração} & \textbf{N = 1} & \textbf{N = 2} & \textbf{N = 4} & \textbf{N = 8} & \textbf{N = 16} & \textbf{Teto} \\
-        \hline
-        Indian Pines & como no esquema, bloco 1 & 0,14$\times$ & 0,08$\times$ & 0,03$\times$ & 0,03$\times$ & 0,03$\times$ & \multirow{4}{*}{2,98$\times$} \\
-                     & como no esquema, bloco 64 & 1,18$\times$ & 1,38$\times$ & 1,28$\times$ & 0,95$\times$ & 0,99$\times$ & \\
-                     & como no esquema, bloco 1.024 & 1,20$\times$ & 1,64$\times$ & 0,96$\times$ & 2,01$\times$ & 1,93$\times$ & \\
-                     & desacoplada, bloco 1.024 & 1,10$\times$ & 1,22$\times$ & 1,53$\times$ & 2,17$\times$ & 1,86$\times$ & \\
-        \hline
-        University of Pavia & como no esquema, bloco 64 & 0,82$\times$ & 0,81$\times$ & 0,71$\times$ & 0,68$\times$ & 0,63$\times$ & \multirow{3}{*}{1,21$\times$} \\
-                            & como no esquema, bloco 1.024 & 1,04$\times$ & 1,19$\times$ & 1,21$\times$ & 1,11$\times$ & 1,07$\times$ & \\
-                            & desacoplada, bloco 1.024 & 1,18$\times$ & 1,21$\times$ & 1,12$\times$ & 1,16$\times$ & 1,21$\times$ & \\
-        \hline
-        Salinas Valley & como no esquema, bloco 64 & 0,92$\times$ & 0,97$\times$ & 0,70$\times$ & 0,59$\times$ & 0,65$\times$ & \multirow{3}{*}{1,49$\times$} \\
-                       & como no esquema, bloco 1.024 & 1,28$\times$ & 1,42$\times$ & 1,42$\times$ & 1,50$\times$ & 1,45$\times$ & \\
-                       & desacoplada, bloco 1.024 & 1,43$\times$ & 1,54$\times$ & 1,43$\times$ & 1,57$\times$ & 1,43$\times$ & \\
-        \hline
-    \end{tabular}%
-    }
-    \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Seção crítica como no esquema; a versão mínima difere dentro da variação entre repetições. O lote leva 0,330 s, 1,050 s e 1,000 s nas três cenas. O teto usa o tempo médio da segmentação nas execuções sequenciais por blocos (0,111 s, 0,869 s e 0,670 s); como esse tempo varia entre execuções (de 0,61 s a 0,79 s nas execuções sequenciais de Salinas Valley), configurações isoladas podem ficar um pouco acima dele, como em Salinas Valley}
-    \label{tab:fusao}
-\end{table}
-
-Com uma posição por tarefa, o esquema fica de 7 a 35 vezes mais lento que o lote; a maior parte desse custo vem de chamar a rede pixel a pixel, que já sem threads é 3,12 vezes mais lento, e a disputa pelo GIL agrava a perda. Com blocos de 1.024 posições, o esquema atinge o teto em University of Pavia e Salinas Valley (1,21$\times$ e 1,50$\times$) e chega a 2,01$\times$ em Indian Pines, abaixo do teto de 2,98$\times$; distâncias de poucos por cento ao teto estão dentro da variação do tempo de segmentação. Com blocos de 64 posições, as 669 tarefas de University of Pavia e as 846 de Salinas Valley já deixam o esquema mais lento que o lote.
-
-A \autoref{fig:fusaoLinhaTempo} mostra a sobreposição em uma execução de University of Pavia. Na forma como no esquema, cada thread faz as convoluções do primeiro bloco e espera o mapa, e enquanto T0 segmenta só $N$ blocos avançam: de 0,1\% a 38\% das convoluções terminam antes da publicação do mapa em University of Pavia e Salinas Valley, enquanto na variante desacoplada todas terminam durante a segmentação (\autoref{tab:fusaoSobreposicao}). A extensão da seção crítica não fez diferença afirmável: a versão mínima teve média um pouco maior em 14 de 15 combinações, sempre dentro de duas vezes o desvio combinado (\autoref{tab:fusaoSecao}).
-
-\begin{figure}[H]
-    \centering
-    \captionsetup{justification=centering}
-    \caption{Linha do tempo de uma execução da fusão concorrente em University of Pavia, como no esquema e na variante desacoplada (4 threads de trabalho, blocos de 64 posições)}
-    \includegraphics[width=\textwidth]{assets/resultados/fusao_linha_do_tempo.pdf}
-    \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Execuções isoladas; a segmentação levou 1,10 s na forma como no esquema e 0,90 s na variante desacoplada}
-    \label{fig:fusaoLinhaTempo}
-\end{figure}
-
-Contra o lote com as 16 threads internas do PyTorch, a melhor configuração com blocos de 1.024 posições rende de 1,01$\times$, em University of Pavia, a 1,29$\times$, em Indian Pines, uma economia de 0,01 s a 0,10 s por cena. O esquema é, portanto, uma forma correta e verificada de executar a proposta do projeto, com ganho no cenário em que um modelo treinado classifica uma cena nova, limitado pelo tempo da segmentação e sem efeito sobre o treino.
-
-\section{Automação de Hiperparâmetros}
-\label{sec:resHPO}
-
-\subsection{Estratégias de Busca}
-
-As três estratégias foram comparadas com o mesmo espaço, 20 \textit{trials}, a mesma cobertura inicial e três orçamentos de épocas por \textit{trial}, em Indian Pines, com 3 sementes por célula, num total de 540 \textit{trials} (\autoref{tab:estrategias}).
-
-\begin{table}[H]
-    \centering
-    \caption{Estratégias de busca por orçamento de épocas (Indian Pines, 3 sementes)}
-    \begin{tabular}{|p{0.16\textwidth}|p{0.14\textwidth}|c|c|}
-        \hline
-        \rowcolor[HTML]{C0C0C0}
-        \textbf{Orçamento} & \textbf{Estratégia} & \textbf{Melhor validação} & \textbf{OA de teste do vencedor} \\
-        \hline
-        10 épocas & Aleatória & 0,7174 $\pm$ 0,0027 & 0,7065 \\
-                  & TPE & 0,7226 $\pm$ 0,0162 & 0,7130 \\
-                  & Genética & 0,7334 $\pm$ 0,0199 & 0,7174 \\
-        \hline
-        40 épocas & Aleatória & 0,7802 $\pm$ 0,0156 & 0,7729 \\
-                  & TPE & 0,7924 $\pm$ 0,0193 & 0,7997 \\
-                  & Genética & 0,8058 $\pm$ 0,0114 & 0,7989 \\
-        \hline
-        200 épocas & Aleatória & 0,8067 $\pm$ 0,0149 & 0,7859 \\
-                   & TPE & 0,8266 $\pm$ 0,0175 & 0,8127 \\
-                   & Genética & 0,8288 $\pm$ 0,0346 & 0,8080 \\
-        \hline
-    \end{tabular}
-    \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor}
-    \label{tab:estrategias}
-\end{table}
-
-Nenhuma estratégia se separa das outras além do ruído entre sementes: as adaptativas ficam à frente da aleatória em todos os orçamentos, mas a maior diferença, de 2,56 pontos com 40 épocas, não passa de duas vezes o desvio combinado (\autoref{tab:estrategiasRuido}). O que mais mudou o resultado foi o orçamento: passar de 10 para 200 épocas por \textit{trial} acrescenta de 9 a 10 pontos à melhor validação, e a busca aleatória com 200 épocas empata com as adaptativas com 40 e supera as três com 10. Com poucos hiperparâmetros dominantes, o sorteio já encontra a região de bons resultados \cite{Bergstra2012Random}, e o limite está em quanto cada candidato treina. O tempo de treino de uma busca é praticamente o mesmo nas três estratégias (\autoref{tab:estrategiasCusto}). Para os métodos previstos no projeto (\autoref{qua:metodosHPO}), isso significa que a Otimização Bayesiana, mantida com o TPE, não se separou da busca aleatória que substituiu a grade. A grade completa não foi executada, e a distância entre o melhor dos 20 \textit{trials} e o melhor ponto do espaço não foi medida.
-
-\subsection{Peso de Cada Hiperparâmetro}
-
-A \autoref{fig:eixos} mostra a validação média dos 540 \textit{trials} por valor de cada hiperparâmetro. O \textit{dropout} é o mais influente, com 18,10 pontos entre o melhor e o pior valor, seguido da taxa de aprendizado (15,26), do segmentador (14,89), dos componentes do PCA (8,35), do \textit{weight decay} (4,55) e do lote (1,81) (\autoref{tab:eixos}). A configuração original usa o pior valor do hiperparâmetro mais influente: o \textit{dropout} de 0,5 fica 18,10 pontos abaixo do de 0,20. Essas médias misturam \textit{trials} de três orçamentos e de estratégias diferentes e não isolam o efeito de cada hiperparâmetro.
-
-\begin{figure}[H]
-    \centering
-    \captionsetup{justification=centering}
-    \caption{Acurácia de validação média dos 540 \textit{trials} do experimento 08 por valor de cada hiperparâmetro (Indian Pines), com o valor original destacado}
-    \includegraphics[width=\textwidth]{assets/resultados/eixos_hpo.pdf}
-    \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Taxa de aprendizado e \textit{weight decay} em unidades de $10^{-3}$; entre parênteses, a diferença entre o melhor e o pior valor de cada hiperparâmetro, em pontos percentuais}
-    \label{fig:eixos}
-\end{figure}
-
-\subsection{Ganho sobre a Configuração Original}
-
-Para cada segmentador, a configuração original (taxa 0,001, \textit{dropout} 0,5, \textit{weight decay} 0, lote 32 e 30 componentes) e a vencedora da busca TPE do mesmo segmentador (\autoref{ap:configuracoes}) foram treinadas com as mesmas 5 sementes, em Indian Pines, com 10\% do treino (\autoref{tab:impactoHPO}). Um ganho é afirmável quando excede duas vezes o desvio combinado das duas configurações.
-
-\begin{table}[H]
-    \centering
-    \caption{Configuração original contra configuração otimizada (Indian Pines, 5 sementes, 10\% do treino)}
-    \resizebox{\textwidth}{!}{%
-    \begin{tabular}{|l|c|c|c|c|l|}
-        \hline
-        \rowcolor[HTML]{C0C0C0}
-        \textbf{Segmentador} & \textbf{OA original} & \textbf{OA otimizada} & \textbf{Ganho (pp)} & \textbf{Desvio comb.} & \textbf{Leitura} \\
-        \hline
-        SEEDS & 0,7441 $\pm$ 0,0169 & 0,8174 $\pm$ 0,0112 & +7,33 & 2,03 & afirmável \\
-        \hline
-        SLIC & 0,6060 $\pm$ 0,1603 & 0,6411 $\pm$ 0,1856 & +3,51 & 24,53 & ruído \\
-        \hline
-        LSC & 0,6814 $\pm$ 0,0381 & 0,7657 $\pm$ 0,0220 & +8,43 & 4,40 & ruído \\
-        \hline
-        Watershed & 0,5847 $\pm$ 0,1586 & 0,5646 $\pm$ 0,2255 & $-$2,00 & 27,57 & ruído \\
-        \hline
-    \end{tabular}%
-    }
-    \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor}
-    \label{tab:impactoHPO}
-\end{table}
-
-Com o SEEDS, a busca acrescenta 7,33 pontos de OA, 10,81 de AA e 8,52 de Kappa, o único ganho afirmável nas três métricas (\autoref{tab:impactoHPOCompleto}). A configuração vencedora reduz o \textit{dropout} para 0,35, dobra o lote e usa 15 componentes; como as mudanças vieram juntas, o efeito de cada uma não foi isolado. Nos demais segmentadores, o desvio entre sementes impede afirmar o sinal do ganho de OA: SLIC e Watershed colapsam em algumas sementes, e o ganho do LSC, de 8,43 pontos, fica abaixo do limiar de 8,80, embora o de AA, de 17,61, passe do limiar de 11,67. O ganho foi medido com 10\% do treino; com o treino completo, o efeito da configuração otimizada não foi medido.
+Quanto à memória, cada \textit{trial} da busca guardava a própria cópia dos dados, de 2,5 MB a 6,5 MB conforme a cena (\autoref{tab:memoria}); a busca passou a guardar de cada \textit{trial} só as métricas e a configuração.
 
 \section{Segmentadores}
 \label{sec:resSegmentadores}
 
-A \autoref{tab:estruturaSeg} resume as segmentações com os parâmetros padrão. O SEEDS produz poucas regiões grandes (81 em Indian Pines e 45 em University of Pavia), enquanto SLIC e LSC produzem quatro vezes mais regiões em Indian Pines e cerca de trinta vezes mais em University of Pavia, com pureza maior.
+A \autoref{tab:estruturaSeg} resume as segmentações com os parâmetros padrão. O SEEDS, com os parâmetros do notebook original, produz 81 regiões em Indian Pines, 45 em University of Pavia e 96 em Salinas Valley; o LSC e o Watershed foram calibrados para produzir o mesmo número, de modo que a comparação não mistura o algoritmo com a granularidade da segmentação. O Watershed fica com uma região a mais, formada pelas linhas entre as bacias. Com o mesmo número de regiões, o SEEDS tem a maior pureza nas três cenas, e o Watershed é o mais rápido, de 1,2 ms a 10,6 ms por segmentação, de 28 a 62 vezes menos que o SEEDS; o LSC é mais rápido que o SEEDS em University of Pavia e Salinas Valley e um pouco mais lento em Indian Pines.
 
 \begin{table}[H]
     \centering
     \caption{Estrutura das segmentações com os parâmetros padrão}
-    \small
-    \setlength{\tabcolsep}{4pt}
-    \begin{tabular}{|l|l|c|C{1.7cm}|c|C{1.3cm}|C{1.7cm}|}
+    \begin{tabular}{|l|l|c|c|c|c|}
         \hline
         \rowcolor[HTML]{C0C0C0}
-        \textbf{Cena} & \textbf{Algoritmo} & \textbf{Regiões} & \textbf{Área média (px)} & \textbf{Pureza} & \textbf{Tempo (ms)} & \textbf{Treino por região} \\
+        \textbf{Cena} & \textbf{Algoritmo} & \textbf{Regiões} & \textbf{Área média (px)} & \textbf{Pureza} & \textbf{Tempo (ms)} \\
         \hline
-        Indian Pines & SEEDS & 81 & 259,6 & 0,8831 & 31,9 & 10,8 \\
-                     & SLIC & 324 & 64,9 & 0,9581 & 8,0 & 2,7 \\
-                     & LSC & 324 & 64,9 & 0,9710 & 42,7 & 2,7 \\
-                     & Watershed & 273 & 77,0 & 0,8543 & 1,3 & 3,2 \\
+        Indian Pines & SEEDS & 81 & 259,6 & 0,8919 & 33,3 \\
+                     & LSC & 81 & 259,6 & 0,8825 & 37,7 \\
+                     & Watershed & 82 & 256,4 & 0,8330 & 1,2 \\
         \hline
-        University of Pavia & SEEDS & 45 & 4.608,9 & 0,9212 & 618,6 & 80,8 \\
-                    & SLIC & 1.428 & 145,2 & 0,9857 & 69,8 & 2,5 \\
-                    & LSC & 1.428 & 145,2 & 0,9955 & 309,4 & 2,5 \\
-                    & Watershed & 421 & 492,6 & 0,9313 & 10,5 & 8,6 \\
+        University of Pavia & SEEDS & 45 & 4.608,9 & 0,9272 & 599,1 \\
+                            & LSC & 45 & 4.608,9 & 0,8194 & 280,2 \\
+                            & Watershed & 46 & 4.508,7 & 0,7918 & 10,6 \\
+        \hline
+        Salinas Valley & SEEDS & 96 & 1.157,3 & 0,9886 & 343,1 \\
+                       & LSC & 96 & 1.157,3 & 0,9241 & 151,0 \\
+                       & Watershed & 97 & 1.145,4 & 0,9563 & 5,5 \\
         \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Tempo: mediana de 14 chamadas com o OpenCV em uma thread, em duas passadas de 7, cada uma depois de uma chamada de aquecimento; mede só a segmentação, sem o PCA de 3 componentes e a composição RGB, que entram nos tempos da \autoref{tab:ramos} e da \autoref{subsec:resFusao}. Em outra sessão, os tempos ficaram até 23\% abaixo destes, na mesma ordem entre os algoritmos. Treino por região: amostras do treino de 10\% (871 em Indian Pines e 3.635 em University of Pavia) divididas pelo número de regiões}
+    \caption*{Fonte: Elaborada pelo autor. LSC e Watershed calibrados para o número de regiões do SEEDS. Área média: pixels da cena divididos pelo número de regiões. Pureza: fração dos pixels rotulados que pertencem à classe dominante da sua região. Tempo: mediana de 14 chamadas com o OpenCV em uma thread, em duas passadas de 7, cada uma depois de uma chamada de aquecimento; mede só a segmentação, sem o PCA de 3 componentes e a composição RGB, que entram nos tempos da \autoref{tab:ramos} e da \autoref{subsec:resFusao}}
     \label{tab:estruturaSeg}
 \end{table}
 
-Com a CNN fixa, como previsto no plano de verificação, o SLIC e o LSC obtiveram em University of Pavia Kappa de 0,0346 e 0,0369, praticamente o de um classificador aleatório, contra 0,9360 do SEEDS e 0,9053 do Watershed (\autoref{tab:cnnFixa}): com 1.428 regiões, o identificador concatenado chega a 1.427, contra componentes de variância unitária, e a configuração que serve ao SEEDS, com 45 regiões, não serve a eles, enquanto o Watershed, com 421 regiões, treina com ela. Com a CNN otimizada para cada um, a OA do SLIC sobe para 0,9534 e empata com a do SEEDS, e a do LSC sobe para 0,8333; por isso, o desenho com a CNN fixa foi mantido apenas como contraexemplo.
+Com a CNN fixa, como previsto no plano de verificação, os três segmentadores são treinados com a CNN do projeto e os hiperparâmetros originais, com 5 sementes e o treino completo, nas três cenas (experimento 02; \autoref{tab:cnnFixa}). Como o LSC e o Watershed produzem o mesmo número de regiões que o SEEDS, o identificador concatenado tem a mesma faixa de valores nos três, e a diferença reflete a forma das regiões, e não a escala do identificador. \pendente{experimento 02: OA e Kappa de SEEDS, LSC e Watershed por cena, com a leitura pelo critério de duas vezes o desvio combinado}
 
 \begin{table}[H]
     \centering
-    \caption{Segmentadores com a CNN fixa e com a CNN otimizada para cada um (5 sementes, 10\% do treino)}
+    \caption{Segmentadores com a CNN fixa e com a CNN otimizada para cada um (5 sementes, treino completo)}
     \small
     \setlength{\tabcolsep}{3pt}
     \begin{tabular}{|l|l|C{2.6cm}|C{1.5cm}|C{2.6cm}|C{1.75cm}|}
@@ -345,71 +136,228 @@ Com a CNN fixa, como previsto no plano de verificação, o SLIC e o LSC obtivera
         \rowcolor[HTML]{C0C0C0}
         \textbf{Cena} & \textbf{Segmentador} & \textbf{OA, CNN fixa} & \textbf{Kappa, CNN fixa} & \textbf{OA, otimizada} & \textbf{Kappa, otimizada} \\
         \hline
-        Indian Pines & SEEDS & 0,7441 $\pm$ 0,0169 & 0,7058 & 0,8174 $\pm$ 0,0112 & 0,7910 \\
-        & SLIC & 0,6060 $\pm$ 0,1603 & 0,5342 & 0,6411 $\pm$ 0,1856 & 0,5839 \\
-        & LSC & 0,6814 $\pm$ 0,0381 & 0,6294 & 0,7657 $\pm$ 0,0220 & 0,7310 \\
-        & Watershed & 0,5847 $\pm$ 0,1586 & 0,5056 & 0,5646 $\pm$ 0,2255 & 0,4777 \\ \hline
-        University of Pavia & SEEDS & 0,9519 $\pm$ 0,0026 & 0,9360 & 0,9515 $\pm$ 0,0042 & 0,9358 \\
-        & SLIC & 0,4485 $\pm$ 0,0085 & 0,0346 & 0,9534 $\pm$ 0,0039 & 0,9381 \\
-        & LSC & 0,4508 $\pm$ 0,0114 & 0,0369 & 0,8333 $\pm$ 0,1986 & 0,7283 \\
-        & Watershed & 0,9291 $\pm$ 0,0212 & 0,9053 & 0,9555 $\pm$ 0,0020 & 0,9410 \\ \hline
+        Indian Pines & SEEDS & -- & -- & 0,9324 $\pm$ 0,0062 & 0,9229 \\
+        & LSC & -- & -- & 0,9152 $\pm$ 0,0045 & 0,9031 \\
+        & Watershed & -- & -- & -- & -- \\ \hline
+        University of Pavia & SEEDS & -- & -- & -- & -- \\
+        & LSC & -- & -- & -- & -- \\
+        & Watershed & -- & -- & -- & -- \\ \hline
+        Salinas Valley & SEEDS & -- & -- & -- & -- \\
+        & LSC & -- & -- & -- & -- \\
+        & Watershed & -- & -- & -- & -- \\ \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. CNN fixa: a configuração original, igual para os quatro segmentadores}
+    \caption*{Fonte: Elaborada pelo autor. CNN fixa: a CNN do projeto com os hiperparâmetros do notebook original, igual para os três segmentadores (experimento 02); otimizada: a vencedora do experimento 03 para cada cena e segmentador. \pendente{experimento 02: colunas da CNN fixa; experimento 03: demais linhas da CNN otimizada}}
     \label{tab:cnnFixa}
 \end{table}
 
-A \autoref{tab:segmentadores} mostra a OA de cada segmentador sob otimização conjunta, com o mesmo orçamento de busca, nas três cenas; as configurações vencedoras estão no \autoref{ap:configuracoes}.
+A \autoref{tab:segmentadores} mostra a OA de cada segmentador com a CNN ajustada a ele (experimento 03): para cada cena e segmentador, uma Otimização Bayesiana com processo gaussiano de 16 \textit{trials}, com o segmentador fixo e as suas três configurações no espaço de busca, escolhe o vencedor pela validação, que é retreinado com 5 sementes; busca e retreinos usam o treino completo, até 200 épocas e parada após 10 sem melhora. As configurações vencedoras estão no \autoref{ap:configuracoes}.
 
 \begin{table}[H]
     \centering
-    \caption{OA de teste de cada segmentador sob otimização conjunta (5 sementes, 10\% do treino)}
-    \resizebox{\textwidth}{!}{%
-    \begin{tabular}{|l|c|c|c|c|}
+    \caption{OA de teste de cada segmentador com a CNN ajustada a ele (experimento 03, 5 sementes, treino completo)}
+    \begin{tabular}{|l|c|c|c|}
         \hline
         \rowcolor[HTML]{C0C0C0}
-        \textbf{Cena} & \textbf{SEEDS} & \textbf{SLIC} & \textbf{LSC} & \textbf{Watershed} \\
+        \textbf{Cena} & \textbf{SEEDS} & \textbf{LSC} & \textbf{Watershed} \\
         \hline
-        Indian Pines & 0,8174 $\pm$ 0,0112 & 0,6411 $\pm$ 0,1856 & 0,7657 $\pm$ 0,0220 & 0,5646 $\pm$ 0,2255 \\
+        Indian Pines & 0,9324 $\pm$ 0,0062 & 0,9152 $\pm$ 0,0045 & -- \\
         \hline
-        University of Pavia & 0,9515 $\pm$ 0,0042 & 0,9534 $\pm$ 0,0039 & 0,8333 $\pm$ 0,1986 & 0,9555 $\pm$ 0,0020 \\
+        University of Pavia & -- & -- & -- \\
         \hline
-        Salinas Valley & 0,9632 $\pm$ 0,0076 & 0,9501 $\pm$ 0,0045 & 0,9509 $\pm$ 0,0054 & 0,9497 $\pm$ 0,0046 \\
-        \hline
-    \end{tabular}%
-    }
-    \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Em University of Pavia, o LSC colapsou em uma das cinco sementes, com OA de 0,44; nas outras quatro, ficou entre 0,93 e 0,94}
-    \label{tab:segmentadores}
-\end{table}
-
-Nenhum segmentador supera o SEEDS de forma afirmável (\autoref{tab:segmentadoresCompleto}). Em Indian Pines, todos ficam atrás: os 25,3 pontos entre o SEEDS e o Watershed vêm de sementes em que o Watershed colapsa e ficam dentro do desvio, e a única diferença afirmável é a do SEEDS sobre o LSC, de 5,18 pontos, contra um limiar de 4,95. Em University of Pavia, SLIC e Watershed têm média maior que a do SEEDS, dentro do desvio, e o LSC fica 11,82 pontos atrás, também dentro do desvio, porque colapsou em uma das cinco sementes; em Salinas Valley, os três ficam de 1,23 a 1,35 ponto atrás, dentro do critério. Nessas duas cenas, a meta de 0,95 interrompe cedo parte dos treinos (\autoref{ap:configuracoes}), o que pede cautela com diferenças dessa ordem. Os hiperparâmetros escolhidos variam com o segmentador, mas nem sempre: em Indian Pines, SLIC e LSC escolheram taxa de aprendizado três vezes menor que a do SEEDS, e o Watershed repetiu todos os hiperparâmetros da CNN do SEEDS; em University of Pavia, o SLIC repetiu os do SEEDS, e, em Salinas Valley, o LSC repetiu os do Watershed.
-
-A pureza das regiões não acompanha o resultado: o LSC tem a maior pureza em Indian Pines (0,97) e fica atrás do SEEDS, cuja pureza (0,88) só supera a do Watershed. O número de amostras de treino por região com os parâmetros padrão é maior no SEEDS (10,8, contra 2,7 no SLIC e no LSC e 3,2 no Watershed), o de melhor resultado, mas não ordena os outros três; com o treino fixo, esse indicador é o inverso do número de regiões, e quatro algoritmos em uma cena não permitem afirmar uma causa. A \autoref{tab:ablacao} mostra como o identificador é aproveitado: substituí-lo por um número aleatório por pixel, que preserva só a escala, é a pior alteração, e normalizá-lo para $[0, 1]$ custa 7,58 pontos, o que indica que a rede usa tanto o agrupamento quanto a escala do identificador. Uma tabela de vetores aprendidos por região elevou a OA de 0,8981 para 0,9471 em Indian Pines e de 0,9785 para 0,9868 em University of Pavia, sem desvio registrado.
-
-\begin{table}[H]
-    \centering
-    \caption{Como o identificador do superpixel é aproveitado pela rede (Indian Pines, 3 sementes)}
-    \begin{tabular}{|p{0.32\textwidth}|p{0.40\textwidth}|c|}
-        \hline
-        \rowcolor[HTML]{C0C0C0}
-        \textbf{Identificador} & \textbf{O que preserva} & \textbf{OA} \\
-        \hline
-        Original & tudo & 0,8981 \\
-        \hline
-        Permutado entre regiões & agrupamento e escala; perde a ordem & 0,8552 \\
-        \hline
-        Normalizado para $[0, 1]$ & tudo menos a magnitude & 0,8223 \\
-        \hline
-        Aleatório por pixel & só a escala; perde o agrupamento & 0,7898 \\
-        \hline
-        Vetor aprendido por região & agrupamento, sem ordem nem escala & 0,9471 \\
+        Salinas Valley & -- & -- & -- \\
         \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor. Médias de 3 sementes, sem o desvio registrado; a linha do vetor aprendido vem da comparação de modos de fusão, com a mesma referência. A referência (0,8981) vem de uma rodada própria e difere das médias da \autoref{tab:fracaoTreino} (0,9016) e da \autoref{tab:linhaBase} (0,9051, semente 42); as diferenças entre linhas devem ser lidas dentro desta tabela}
-    \label{tab:ablacao}
+    \caption*{Fonte: Elaborada pelo autor. \pendente{experimento 03: Watershed em Indian Pines e as três colunas em University of Pavia e Salinas Valley}}
+    \label{tab:segmentadores}
 \end{table}
+
+Em Indian Pines, o SEEDS supera o LSC por 1,72 ponto de OA, contra um limiar de 1,52 ponto, e por 1,98 ponto de Kappa, contra 1,74; a diferença de AA, de 4,67 pontos, fica dentro do limiar de 4,85 (\autoref{tab:segmentadoresCompleto}). A busca manteve a configuração padrão dos dois segmentadores e escolheu para os dois os mesmos hiperparâmetros da CNN: taxa de aprendizado de 0,0003, \textit{dropout} de 0,2, sem \textit{weight decay}, lote de 64 e 15 componentes. Como só o segmentador difere entre as duas configurações, a diferença vem da segmentação. A validação do vencedor na busca fica 1,6 ponto acima da OA de teste com o SEEDS e 2,4 com o LSC, efeito esperado de escolher o melhor de 16 candidatos pela própria validação. \pendente{experimento 03: Watershed em Indian Pines e os três segmentadores em University of Pavia e Salinas Valley, com a diferença para o SEEDS, o limiar e os hiperparâmetros vencedores de cada um}
+
+Em Indian Pines, a ordem entre o SEEDS e o LSC é a mesma da pureza (0,8919 contra 0,8825). Esse resultado vale para segmentações com o mesmo número de regiões, escolha de desenho que separa a forma das regiões da sua quantidade. \pendente{experimentos 02 e 03: se a ordem de pureza acompanha a de OA nas três cenas e se a CNN fixa e a ajustada levam à mesma ordem entre os segmentadores}
+
+\section{Automação de Hiperparâmetros}
+\label{sec:resHPO}
+
+\subsection{Estratégias de Busca}
+
+A busca em grade e a Otimização Bayesiana com processo gaussiano são comparadas com o mesmo orçamento, 27 \textit{trials} por busca (experimento 04). A grade percorre o segmentador, a taxa de aprendizado e o \textit{dropout} (3 $\times$ 3 $\times$ 3), com os demais hiperparâmetros no valor original; a bayesiana busca no espaço inteiro (segmentador e sua configuração, taxa, \textit{dropout}, \textit{weight decay}, lote e componentes do PCA) e começa com um \textit{trial} de cada segmentador e um sorteado. Cada busca é repetida com três orçamentos de épocas por \textit{trial} (10, 40 e 200) e 3 sementes, em Indian Pines e com 10\% do treino, num total de 486 \textit{trials} (\autoref{tab:estrategias}). Na grade, a semente muda só o treino, e os 27 pontos são os mesmos.
+
+\begin{table}[H]
+    \centering
+    \caption{Busca em grade e Otimização Bayesiana por orçamento de épocas (Indian Pines, 27 \textit{trials}, 3 sementes, 10\% do treino)}
+    \begin{tabular}{|p{0.16\textwidth}|p{0.16\textwidth}|c|c|}
+        \hline
+        \rowcolor[HTML]{C0C0C0}
+        \textbf{Orçamento} & \textbf{Estratégia} & \textbf{Melhor validação} & \textbf{OA de teste do vencedor} \\
+        \hline
+        10 épocas & Grade & -- & -- \\
+                  & Bayesiana & -- & -- \\
+        \hline
+        40 épocas & Grade & -- & -- \\
+                  & Bayesiana & -- & -- \\
+        \hline
+        200 épocas & Grade & -- & -- \\
+                   & Bayesiana & -- & -- \\
+        \hline
+    \end{tabular}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor. Melhor validação: média e desvio, entre as 3 sementes, da maior validação de cada busca. \pendente{experimento 04: melhor validação e OA de teste do vencedor por orçamento e estratégia}}
+    \label{tab:estrategias}
+\end{table}
+
+A comparação mostra se a Otimização Bayesiana se separa da grade além de duas vezes o desvio combinado em cada orçamento (\autoref{tab:estrategiasRuido}), quanto o orçamento de 10 para 200 épocas acrescenta à melhor validação e quanto treino cada busca consome, já que a bayesiana pode escolher lotes e números de componentes diferentes dos originais (\autoref{tab:estrategiasCusto}). \pendente{experimento 04: diferença entre as estratégias por orçamento, efeito do orçamento e custo de treino} Os dois métodos previstos no projeto (\autoref{qua:metodosHPO}) estão implementados e são os comparados aqui: a grade, reduzida ao segmentador, à taxa de aprendizado e ao \textit{dropout}, e a Otimização Bayesiana com processo gaussiano, implementada com o Optuna. A grade completa, de 2.187 pontos em Indian Pines, não foi executada.
+
+\subsection{Peso de Cada Hiperparâmetro}
+
+A \autoref{fig:eixos} mostra a validação média dos 486 \textit{trials} do experimento 04 (27 por busca, na grade e na Otimização Bayesiana, com 3 orçamentos e 3 sementes) por valor de cada hiperparâmetro, com o valor da configuração original destacado (\autoref{tab:eixos}). \pendente{experimento 04: diferença entre o melhor e o pior valor de cada hiperparâmetro, a ordem entre eles e a posição dos valores originais} Na grade, o \textit{weight decay}, o lote e os componentes do PCA ficam no valor original nos 27 pontos; para esses três hiperparâmetros, a média do valor original inclui todos os \textit{trials} da grade, e só os da Otimização Bayesiana informam os demais valores. Essas médias misturam \textit{trials} de três orçamentos e das duas estratégias e não isolam o efeito de cada hiperparâmetro. Como indício, no experimento 03 os vencedores do SEEDS e do LSC em Indian Pines escolheram os menores valores de taxa de aprendizado e de \textit{dropout} do espaço.
+
+\begin{figure}[H]
+    \centering
+    \captionsetup{justification=centering}
+    \caption[Acurácia de validação média dos 486 \textit{trials} do experimento 04 por valor de cada hiperparâmetro (Indian Pines, 10\% do treino), com o valor original destacado]{Acurácia de validação média dos 486 \textit{trials} do experimento 04 por valor de cada hiperparâmetro (Indian Pines, 10\% do treino), com o valor original destacado \pendente{experimento 04: figura gerada de novo com os \textit{trials} do experimento}}
+    % A figura antiga (eixos_hpo.pdf) é da campanha anterior; volta quando o experimento 04 terminar.
+    \fbox{\parbox[c][3cm][c]{0.9\textwidth}{\centering Figura a ser gerada com os \textit{trials} do experimento 04}}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor. Taxa de aprendizado e \textit{weight decay} em unidades de $10^{-3}$; entre parênteses, a diferença entre o melhor e o pior valor de cada hiperparâmetro, em pontos percentuais}
+    \label{fig:eixos}
+\end{figure}
+
+\subsection{Ganho sobre a Configuração Original}
+
+Para cada segmentador, duas configurações são treinadas com as mesmas 5 sementes em Indian Pines, com o treino completo, até 200 épocas e parada após 10 épocas sem melhora (experimento 05): a configuração original, com os hiperparâmetros do notebook de \citeonline{Souza2023} (taxa 0,001, \textit{dropout} 0,5, \textit{weight decay} 0, lote 32 e 30 componentes), a CNN do projeto e a configuração padrão do segmentador; e a vencedora da Otimização Bayesiana do mesmo segmentador no experimento 03 (\autoref{sec:resSegmentadores} e \autoref{ap:configuracoes}). O ganho é medido sobre a configuração original com o SEEDS, a do trabalho de referência com a CNN do projeto, e é afirmável quando excede duas vezes o desvio combinado das duas configurações (\autoref{tab:impactoHPO}).
+
+\begin{table}[H]
+    \centering
+    \caption{Configuração original contra configuração otimizada (Indian Pines, 5 sementes, treino completo)}
+    \begin{tabular}{|l|c|c|c|c|l|}
+        \hline
+        \rowcolor[HTML]{C0C0C0}
+        \textbf{Segmentador} & \textbf{OA original} & \textbf{OA otimizada} & \textbf{Ganho (pp)} & \textbf{Desvio comb.} & \textbf{Leitura} \\
+        \hline
+        SEEDS & -- & -- & -- & -- & -- \\
+        \hline
+        LSC & -- & -- & -- & -- & -- \\
+        \hline
+        Watershed & -- & -- & -- & -- & -- \\
+        \hline
+    \end{tabular}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor. OA original: hiperparâmetros originais com o segmentador da linha. Ganho e desvio combinado: da configuração otimizada sobre a configuração original com o SEEDS, em pontos percentuais. \pendente{experimento 05: OA das duas configurações, ganho, desvio combinado e leitura}}
+    \label{tab:impactoHPO}
+\end{table}
+
+A configuração vencedora com o SEEDS reduz a taxa de aprendizado para 0,0003 e o \textit{dropout} para 0,2, dobra o lote e usa 15 componentes, com o \textit{weight decay} em 0 e o SEEDS com os parâmetros do notebook; como as mudanças vieram juntas, o efeito de cada uma não foi isolado. Com ela, o experimento 03 obteve em Indian Pines OA de 0,9324 $\pm$ 0,0062, AA de 0,9361 $\pm$ 0,0162 e Kappa de 0,9229 $\pm$ 0,0070, contra 0,9142, 0,8625 e 0,9020 da linha de base, que tem uma semente só; a diferença só pode ser lida pelo critério com as 5 sementes da configuração original. \pendente{experimento 05: ganhos de OA, AA e Kappa do SEEDS, do LSC e do Watershed sobre a configuração original com o SEEDS, leitura pelo critério e colapso de alguma semente (\autoref{tab:impactoHPOCompleto})}
+
+\section{Paralelismo}
+\label{sec:resParalelismo}
+
+\subsection{Entre os Ramos do Pré-processamento}
+
+O ramo espacial contém a segmentação, que leva de 33,3 ms a 599,1 ms com o SEEDS (\autoref{tab:estruturaSeg}), e o ramo espectral, só o PCA. O teto do paralelismo entre os dois é a razão entre o tempo sequencial e o do ramo espacial (\autoref{tab:ramos}). \pendente{medição avulsa dos ramos com o código atual, em sequência e em threads, com 5 repetições: tempos, \textit{speedup} e teto por cena} Há ainda um limite mais forte: em Indian Pines, a segmentação com o SEEDS leva 33,3 ms, e o treino da configuração vencedora do experimento 03, 24,9 s por execução; o pré-processamento é uma fração pequena da execução, o que motivou paralelizar o treino. \pendente{experimento 02 e medição dos ramos: fração do pré-processamento na execução com a configuração original}
+
+\begin{table}[H]
+    \centering
+    \caption{Paralelismo entre os ramos do pré-processamento (5 repetições, tempos em segundos)}
+    \begin{tabular}{|l|c|c|c|c|c|}
+        \hline
+        \rowcolor[HTML]{C0C0C0}
+        \textbf{Cena} & \textbf{Espectral} & \textbf{Espacial} & \textbf{Sequencial} & \textbf{Threads} & \textbf{Teto} \\
+        \hline
+        Indian Pines & -- & -- & -- & -- & -- \\
+        \hline
+        University of Pavia & -- & -- & -- & -- & -- \\
+        \hline
+        Salinas Valley & -- & -- & -- & -- & -- \\
+        \hline
+    \end{tabular}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor. Threads: \textit{speedup} dos dois ramos em threads sobre a execução em sequência. Teto: tempo sequencial dividido pelo tempo do ramo espacial. \pendente{medição avulsa dos ramos com o código atual}}
+    \label{tab:ramos}
+\end{table}
+
+O paralelismo dentro das operações do PyTorch é medido na inferência em lote do experimento 08, com 1 e com 16 threads internas. \pendente{experimento 08: tempo do lote com 1 e com 16 threads do PyTorch em cada cena} O GIL impede que código Python em threads ganhe tempo, embora não limite o código nativo (\autoref{tab:gil}).
+
+\subsection{Por Partição da Cena}
+
+A \autoref{tab:poolQuente} mostra o \textit{speedup} da partição no modo independente, em que cada partição treina o seu modelo, contra a execução sequencial das mesmas partições na CPU (experimento 07; lote 64, 25 épocas e uma thread do PyTorch por partição). O pool frio é criado dentro da medição e paga a partida dos \textit{workers}, que, em processos, sobem um interpretador novo e importam de novo o PyTorch; o pool quente é criado e aquecido uma vez, fora da medição.
+
+\begin{table}[H]
+    \centering
+    \caption{\textit{Speedup} da partição da cena sobre a execução sequencial das mesmas partições (Indian Pines, 25 épocas)}
+    \begin{tabular}{|p{0.30\textwidth}|c|c|c|c|c|}
+        \hline
+        \rowcolor[HTML]{C0C0C0}
+        \textbf{Executor} & \textbf{N = 2} & \textbf{N = 4} & \textbf{N = 8} & \textbf{N = 16} & \textbf{N = 32} \\
+        \hline
+        Threads, pool frio & -- & -- & -- & -- & -- \\
+        \hline
+        Threads, pool quente & -- & -- & -- & -- & -- \\
+        \hline
+        Processos, pool frio & -- & -- & -- & -- & -- \\
+        \hline
+        Processos, pool quente & -- & -- & -- & -- & -- \\
+        \hline
+    \end{tabular}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor. Média do bloco paralelo do executor sequencial dividida pela de cada executor e estado do pool, no modo independente. Com $N$ = 32, o pool de processos não cabe na memória e não é executado. \pendente{experimento 07: \textit{speedup} por executor, estado do pool e $N$}}
+    \label{tab:poolQuente}
+\end{table}
+
+A comparação mostra se threads escalam no treino, cujo laço, numa rede pequena, é dominado por código Python e disputa o GIL; quanto do tempo do pool frio vem da partida dos interpretadores; e quanto uma partição desacelera quando $N$ executam juntas (\autoref{tab:poolTempos}). \pendente{experimento 07: \textit{speedup} do pool quente com $N$ = 16, fração da partida no pool frio, tempo de uma partição sozinha e com 16 juntas, e o $N$ a partir do qual threads ficam mais lentas que a execução sequencial}
+
+A \autoref{tab:particaoOA} compara a OA em processos com a da execução sequencial para cada $N$. O paralelismo por processos esbarra em memória antes de esbarrar em núcleos: com cerca de 481 MB por processo, um pool que não cabe na memória livre com 25\% de folga é recusado antes de executar, e 32 processos exigiriam 19.240 MB, mais que a memória da máquina (\autoref{sec:ambiente}). Com mais partições, cada modelo local treina com menos amostras; o experimento 06 mede, com 3 sementes, a OA da partição em faixas nos modos independente e replicado, com $N$ = 2 a 16. No modo replicado, um único modelo infere as partições, e a OA é a do modelo único. \pendente{experimento 07: OA por $N$, inclusive $N$ = 32, e OA do modo replicado; experimento 06: OA das faixas por $N$ com 3 sementes e fração da inferência na execução do modo replicado}
+
+\subsection{Fusão Concorrente}
+\label{subsec:resFusao}
+
+A fusão concorrente é medida na inferência de todos os pixels rotulados de cada cena, com a CNN do projeto, os hiperparâmetros originais e o SEEDS, treinada com o treino completo, contra duas referências: o lote, que segmenta e depois infere tudo de uma vez, com uma e com 16 threads do PyTorch, e a execução sequencial por blocos (experimento 08). São medidas as duas formas da \autoref{subsec:fusaoConcorrente}, com 1 a 16 threads de trabalho, blocos de 1, 64 e 1.024 posições (o de uma posição só em Indian Pines) e as duas extensões da seção crítica, com 5 repetições (3 com bloco de uma posição). Cada execução confere se os identificadores lidos do mapa são os do treino e se as classes previstas são as do lote (\autoref{tab:fusaoConferencia}). O teto do esquema é a razão entre o tempo do lote e o do ramo espacial de T0, que faz o PCA de 3 componentes, a composição RGB e o SEEDS. \pendente{experimento 08 nas três cenas: número de execuções, conferência, tempos do lote e do ramo espacial e teto por cena}
+
+\begin{table}[!htbp]
+    \centering
+    \small
+    \setlength{\tabcolsep}{4pt}
+    \caption{\textit{Speedup} da fusão concorrente sobre o lote com uma thread do PyTorch, por número de threads de trabalho}
+    \begin{tabular}{|l|l|c|c|c|c|c|c|}
+        \hline
+        \rowcolor[HTML]{C0C0C0}
+        \textbf{Cena} & \textbf{Configuração} & \textbf{N = 1} & \textbf{N = 2} & \textbf{N = 4} & \textbf{N = 8} & \textbf{N = 16} & \textbf{Teto} \\
+        \hline
+        Indian Pines & como no esquema, bloco 1 & -- & -- & -- & -- & -- & \multirow{4}{*}{--} \\
+                     & como no esquema, bloco 64 & -- & -- & -- & -- & -- & \\
+                     & como no esquema, bloco 1.024 & -- & -- & -- & -- & -- & \\
+                     & desacoplada, bloco 1.024 & -- & -- & -- & -- & -- & \\
+        \hline
+        University of Pavia & como no esquema, bloco 64 & -- & -- & -- & -- & -- & \multirow{3}{*}{--} \\
+                            & como no esquema, bloco 1.024 & -- & -- & -- & -- & -- & \\
+                            & desacoplada, bloco 1.024 & -- & -- & -- & -- & -- & \\
+        \hline
+        Salinas Valley & como no esquema, bloco 64 & -- & -- & -- & -- & -- & \multirow{3}{*}{--} \\
+                       & como no esquema, bloco 1.024 & -- & -- & -- & -- & -- & \\
+                       & desacoplada, bloco 1.024 & -- & -- & -- & -- & -- & \\
+        \hline
+    \end{tabular}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor. Seção crítica como no esquema. Teto: tempo do lote dividido pelo tempo médio da segmentação nas execuções sequenciais por blocos. \pendente{experimento 08 nas três cenas: \textit{speedup} por cena, forma, bloco e $N$, tempos do lote e da segmentação e teto}}
+    \label{tab:fusao}
+\end{table}
+
+A comparação mostra a partir de que tamanho de bloco o esquema compensa o custo de chamar a rede a cada tarefa, e se ele alcança o teto em cada cena. As contagens de tarefas dependem só dos dados: com blocos de 64 posições, são 669 em University of Pavia e 846 em Salinas Valley. \pendente{experimento 08: lentidão com uma posição por tarefa, melhor \textit{speedup} com blocos de 1.024 posições diante do teto em cada cena e a partir de que bloco o esquema supera o lote}
+
+A \autoref{fig:fusaoLinhaTempo} mostra a sobreposição em uma execução de University of Pavia. Na forma como no esquema, cada thread faz as convoluções do primeiro bloco e espera o mapa, e enquanto T0 segmenta só $N$ blocos avançam; a variante desacoplada enfileira todas as convoluções antes das fusões (\autoref{tab:fusaoSobreposicao}). \pendente{experimento 08: fração das convoluções concluídas antes da publicação do mapa em cada forma e diferença entre as duas extensões da seção crítica (\autoref{tab:fusaoSecao})}
+
+\begin{figure}[H]
+    \centering
+    \captionsetup{justification=centering}
+    \caption[Linha do tempo de uma execução da fusão concorrente em University of Pavia, como no esquema e na variante desacoplada (4 threads de trabalho, blocos de 64 posições, seção crítica mínima)]{Linha do tempo de uma execução da fusão concorrente em University of Pavia, como no esquema e na variante desacoplada (4 threads de trabalho, blocos de 64 posições, seção crítica mínima) \pendente{experimento 08 em University of Pavia: figura gerada de novo}}
+    \includegraphics[width=\textwidth]{assets/resultados/fusao_linha_do_tempo.pdf}
+    \captionsetup{justification=raggedright}
+    \caption*{Fonte: Elaborada pelo autor. Execuções isoladas. \pendente{experimento 08: tempo da segmentação em cada forma}}
+    \label{fig:fusaoLinhaTempo}
+\end{figure}
+
+O esquema se aplica ao cenário em que um modelo treinado classifica uma cena nova: o ganho é limitado pelo tempo da segmentação e não alcança o treino, em que a segmentação roda uma vez, antes de qualquer época. \pendente{experimento 08: \textit{speedup} da melhor configuração com blocos de 1.024 posições contra o lote com as 16 threads internas do PyTorch e a economia em segundos por cena}
 
 \section{Verificação dos Requisitos}
 \label{sec:resVerificacao}
@@ -424,17 +372,17 @@ O \autoref{qua:verifRF} e o \autoref{qua:verifRNF} resumem a situação de cada 
         \rowcolor[HTML]{C0C0C0}
         \textbf{Req.} & \textbf{Situação} & \textbf{Evidência} \\
         \hline
-        \textbf{RF01} & Atendido & CNN 1D implementada conforme a \autoref{tab:camadas}; OA de 0,9051 a 0,9938 na configuração original (\autoref{tab:linhaBase}) \\
+        \textbf{RF01} & Atendido & CNN 1D do projeto implementada conforme a \autoref{tab:camadas}; com os hiperparâmetros do original e o treino completo, OA de 0,9142 em Indian Pines, 0,9841 em University of Pavia e 0,9938 em Salinas Valley (experimento 01; \autoref{tab:linhaBase}) \\
         \hline
-        \textbf{RF02} & Atendido & SEEDS, SLIC, LSC e Watershed, com o mesmo formato de saída (\autoref{subsec:desSegmentadores}) e comparados na \autoref{tab:segmentadores} \\
+        \textbf{RF02} & Atendido & SEEDS, LSC e Watershed, com o mesmo formato de saída e, no LSC e no Watershed, calibrados para o número de regiões do SEEDS (\autoref{subsec:desSegmentadores} e \autoref{tab:estruturaSeg}); comparados na \autoref{tab:segmentadores} \\
         \hline
-        \textbf{RF03} & Atendido & Concatenação do identificador do superpixel após o achatamento, com entrada de 1.025 posições na cabeça densa em Indian Pines; substituir o identificador por ruído com a mesma escala reduz a OA em 10,83 pontos, na média de 3 sementes, sem desvio registrado (\autoref{tab:ablacao}); a vantagem sobre a rede puramente espectral é a reportada por \citeonline{Souza2023} \\
+        \textbf{RF03} & Atendido & Concatenação do identificador do superpixel ao vetor achatado das convoluções (fusão tardia), com entrada de 385 posições na primeira camada densa em Indian Pines (384 características e o identificador) e de 129 em University of Pavia e Salinas Valley; a fusão é a do trabalho de referência e está presente em todos os experimentos \\
         \hline
-        \textbf{RF04} & Atendido & Busca aleatória, TPE e algoritmo genético (\autoref{sec:desHPO}); ganho de 7,33 pontos de OA sobre a configuração original, em Indian Pines e com 10\% do treino (\autoref{tab:impactoHPO}) \\
+        \textbf{RF04} & -- & Busca em grade (segmentador, taxa de aprendizado e \textit{dropout}, 27 pontos) e Otimização Bayesiana com processo gaussiano no espaço completo (\autoref{sec:desHPO}) \pendente{experimento 05: ganho de OA sobre a configuração original com o SEEDS, em Indian Pines e com o treino completo (\autoref{tab:impactoHPO}); Atendido se o ganho for afirmável} \\
         \hline
-        \textbf{RF05} & Atendido em parte & OA, AA e Kappa; tempo de cada etapa e da inferência; número de parâmetros; memória retida por \textit{trial} e por processo; \textit{speedup} e seu teto teórico. O pico de memória durante o treino e a inferência, previsto no plano, não foi medido \\
+        \textbf{RF05} & Atendido em parte & OA, AA e Kappa; tempo de cada etapa e da inferência; número de parâmetros; memória por \textit{trial} e por processo; \textit{speedup} e seu teto teórico. O pico de memória durante o treino e a inferência, previsto no plano, não foi medido \\
         \hline
-        \textbf{RF06} & Atendido & Entre os ramos (até 1,22$\times$), na fusão concorrente (até 2,01$\times$ contra o lote com uma thread do PyTorch, no teto em University of Pavia e Salinas Valley, e de 1,01$\times$ a 1,29$\times$ contra o lote com 16 threads) e por partição da cena (até 4,47$\times$) \\
+        \textbf{RF06} & -- & Paralelismo entre os ramos, por partição da cena e na fusão concorrente (\autoref{sec:resParalelismo}) \pendente{experimentos 07 e 08 e medição dos ramos: \textit{speedup} de cada estratégia sobre o fluxo sequencial} \\
         \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
@@ -450,7 +398,7 @@ O \autoref{qua:verifRF} e o \autoref{qua:verifRNF} resumem a situação de cada 
         \rowcolor[HTML]{C0C0C0}
         \textbf{Req.} & \textbf{Situação} & \textbf{Evidência} \\
         \hline
-        \textbf{RNF01} & Atendido & A mesma arquitetura do notebook original de \citeonline{Souza2023}, com os mesmos 37.577 parâmetros em University of Pavia \\
+        \textbf{RNF01} & Atendido & CNN do projeto (\autoref{tab:camadas}), derivada da rede de \citeonline{Souza2023}: mesmos \textit{kernels} (9, 3, 3 e 3) e mesma fusão tardia, com 128 filtros na quarta convolução, \textit{max-pooling} após as três primeiras e densas de 256 e 128 neurônios (166.416 parâmetros em Indian Pines e 99.977 em University of Pavia); a rede do notebook original (160.912 e 37.577) foi mantida para a comparação da linha de base \\
         \hline
         \textbf{RNF02} & Atendido & Toda a implementação em Python \\
         \hline
@@ -458,11 +406,11 @@ O \autoref{qua:verifRF} e o \autoref{qua:verifRNF} resumem a situação de cada 
         \hline
         \textbf{RNF04} & Atendido & Fusão por concatenação do identificador ao vetor de características espectrais \\
         \hline
-        \textbf{RNF05} & Atendido em parte & Com o SEEDS, em Indian Pines e com 10\% do treino, +7,33 pontos de OA, +10,81 de AA e +8,52 de Kappa sobre a configuração original; nos demais segmentadores, o ganho de OA fica dentro do ruído entre sementes \\
+        \textbf{RNF05} & -- & Indício do experimento 03: com o SEEDS em Indian Pines, a configuração otimizada obteve OA de 0,9324 $\pm$ 0,0062, contra 0,9142 da linha de base em uma semente \pendente{experimento 05: ganhos de OA, AA e Kappa sobre a configuração original com o SEEDS, com a leitura pelo critério} \\
         \hline
-        \textbf{RNF06} & Atendido em parte & Execuções repetidas com a mesma configuração produzem resultados idênticos (\autoref{qua:reprodutibilidade}); entre sementes, com o SEEDS, o desvio da OA fica entre 0,26 e 1,69 ponto, abaixo de 2, mas o da AA chega a 4,43 pontos em Indian Pines, e o SLIC e o Watershed em Indian Pines e o LSC em University of Pavia chegam a 18,56, 22,55 e 19,86 pontos de OA \\
+        \textbf{RNF06} & -- & Execuções repetidas com a mesma configuração produzem resultados idênticos (\autoref{qua:reprodutibilidade}), salvo partições treinadas em threads; entre sementes, no experimento 03 em Indian Pines, o desvio da OA é de 0,62 ponto com o SEEDS e de 0,45 com o LSC, e o da AA, de 1,62 e 1,81 \pendente{experimento 03: desvios nas demais cenas e segmentadores; Atendido se nenhum passar de 2 pontos} \\
         \hline
-        \textbf{RNF07} & Atendido & Redução de tempo medida nas três estratégias de paralelismo, contra a execução sequencial ou em lote no mesmo dispositivo (\autoref{sec:resParalelismo}) \\
+        \textbf{RNF07} & -- & Redução de tempo medida nas três estratégias de paralelismo, contra a execução sequencial ou em lote no mesmo dispositivo (\autoref{sec:resParalelismo}) \pendente{experimentos 07 e 08 e medição dos ramos: \textit{speedup} maior que 1} \\
         \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
@@ -470,35 +418,36 @@ O \autoref{qua:verifRF} e o \autoref{qua:verifRNF} resumem a situação de cada 
     \label{qua:verifRNF}
 \end{quadro}
 
-A \autoref{tab:metas} compara as metas de acurácia do projeto (\autoref{tab:validacaoDatasets}) com a configuração original e o treino completo. A meta é atingida em Salinas Valley e não é atingida em University of Pavia, por 0,28 ponto de OA, nem em Indian Pines, cuja meta, de 0,95 de OA, está acima do próprio valor reportado no trabalho de referência (0,9142); o efeito da configuração otimizada com o treino completo não foi medido.
+A \autoref{tab:metas} compara as metas de acurácia do projeto (\autoref{tab:validacaoDatasets}) com a linha de base (CNN do projeto, hiperparâmetros do original, treino completo, semente 42). A meta é atingida em University of Pavia e Salinas Valley e não é atingida em Indian Pines, cuja meta, de 0,95 de OA, está acima do próprio valor reportado no trabalho de referência (0,9142), que a CNN do projeto iguala. Com a configuração otimizada e o SEEDS, o experimento 03 obteve em Indian Pines 0,9324 de OA, 0,9361 de AA e 0,9229 de Kappa, o que atinge só a meta de AA. \pendente{experimento 05: OA, AA e Kappa da configuração otimizada em Indian Pines diante da meta}
 
 \begin{table}[H]
     \centering
-    \caption{Metas de acurácia do projeto e valores obtidos com a configuração original (OA; AA; Kappa)}
-    \begin{tabular}{|p{0.22\textwidth}|p{0.22\textwidth}|p{0.28\textwidth}|p{0.16\textwidth}|}
+    \caption{Metas de acurácia do projeto e valores obtidos na linha de base e com a configuração otimizada (OA; AA; Kappa)}
+    \small
+    \begin{tabular}{|p{0.17\textwidth}|p{0.15\textwidth}|p{0.19\textwidth}|p{0.19\textwidth}|p{0.16\textwidth}|}
         \hline
         \rowcolor[HTML]{C0C0C0}
-        \textbf{Cena} & \textbf{Meta} & \textbf{Obtido} & \textbf{Situação} \\
+        \textbf{Cena} & \textbf{Meta} & \textbf{Linha de base} & \textbf{Otimizada} & \textbf{Situação} \\
         \hline
-        Indian Pines & 0,95; 0,93; 0,94 & 0,9051; 0,8237; 0,8914 & Não atingida \\
+        Indian Pines & 0,95; 0,93; 0,94 & 0,9142; 0,8625; 0,9020 & 0,9324; 0,9361; 0,9229 & Só a AA, com a otimizada \\
         \hline
-        University of Pavia & 0,98; 0,97; 0,97 & 0,9772; 0,9644; 0,9698 & Não atingida \\
+        University of Pavia & 0,98; 0,97; 0,97 & 0,9841; 0,9771; 0,9789 & -- & Atingida \\
         \hline
-        Salinas Valley & 0,97; 0,96; 0,96 & 0,9938; 0,9956; 0,9931 & Atingida \\
+        Salinas Valley & 0,97; 0,96; 0,96 & 0,9938; 0,9931; 0,9931 & -- & Atingida \\
         \hline
     \end{tabular}
     \captionsetup{justification=raggedright}
-    \caption*{Fonte: Elaborada pelo autor}
+    \caption*{Fonte: Elaborada pelo autor. Linha de base: experimento 01, CNN do projeto, semente 42. Otimizada: vencedora do experimento 03 com o SEEDS, média de 5 sementes. \pendente{experimento 03: coluna Otimizada em University of Pavia e Salinas Valley}}
     \label{tab:metas}
 \end{table}
 
 \section{Discussão dos Resultados}
 \label{sec:resDiscussao}
 
-Nos eixos de desempenho, o ganho de cada otimização é limitado pela fração do trabalho que ela alcança e depende da referência contra a qual é medido. O paralelismo entre os ramos atinge o teto apenas em Salinas Valley, e esse teto é baixo porque o ramo espacial, que contém a segmentação, domina um pré-processamento que é menos de 1\% da execução. A fusão concorrente atinge o teto dado pela segmentação em University of Pavia e Salinas Valley, mas atua sobre a inferência, também uma parte pequena do total. O ganho expressivo, de 4,47$\times$, veio de paralelizar o treino entre partições com processos e pool aquecido. Threads de Python só aceleraram o que acontece fora do interpretador. A forma de medir decidiu mais de uma conclusão: o pool criado dentro da medição escondia o ganho da partição, e as 32 threads do OpenMP em cada thread de trabalho tornavam a primeira rodada da fusão concorrente 5,7 vezes mais lenta (7,3 s contra 1,28 s em University of Pavia, com blocos de 64 posições e uma thread de trabalho).
+Nos eixos de desempenho, o ganho de cada otimização é limitado pela fração do trabalho que ela alcança e depende da referência contra a qual é medido. O paralelismo entre os ramos atua sobre o pré-processamento, com teto dado pelo ramo espacial, que contém a segmentação; a fusão concorrente atua sobre a inferência, com teto dado pela segmentação; só a partição da cena alcança o treino, que domina a execução. A forma de medir também decide conclusões: um pool criado dentro da medição soma a partida dos \textit{workers} ao tempo medido, e cada thread de trabalho precisa ter o número de threads internas do PyTorch fixado, que de outro modo sobe ao padrão da máquina e disputa os mesmos núcleos. \pendente{experimentos 06 a 08 e medição dos ramos: \textit{speedup} de cada estratégia diante do seu teto e qual delas dá o maior ganho}
 
-Medir o paralelismo na CPU também é coerente com o trabalho de referência. Na inferência do conjunto de teste, \citeonline{Souza2023} obteve, para a CNN 1D com SEEDS, tempos menores em uma CPU de 2 núcleos do que em uma GPU T4 nas três cenas (273 contra 426 ms em Indian Pines, 790 contra 897 ms em Salinas Valley e 429 contra 1.518 ms em University of Pavia). A GPU só compensou nas redes que processam cubos de dados, como a HybridSN, com 1,6 s contra 41,3 s em Indian Pines. Em uma rede com 160.912 parâmetros e entrada de 30 valores por pixel, há pouco cálculo por lote para ocupar a GPU, e o custo de copiar os dados e lançar as operações pesa proporcionalmente mais.
+Medir o paralelismo na CPU também é coerente com o trabalho de referência. Na inferência do conjunto de teste, \citeonline{Souza2023} obteve, para a CNN 1D com SEEDS, tempos menores em uma CPU de 2 núcleos do que em uma GPU T4 nas três cenas (273 contra 426 ms em Indian Pines, 790 contra 897 ms em Salinas Valley e 429 contra 1.518 ms em University of Pavia). A GPU só compensou nas redes que processam cubos de dados, como a HybridSN, com 1,6 s contra 41,3 s em Indian Pines. Na rede deste trabalho, com 166.416 parâmetros em Indian Pines (160.912 na do notebook original) e entrada de 30 valores por pixel, há pouco cálculo por lote para ocupar a GPU, e o custo de copiar os dados e lançar as operações pesa proporcionalmente mais.
 
-Na automação de hiperparâmetros, o ganho de 7,33 pontos de OA sobre a configuração original, com 10\% do treino em Indian Pines, é o resultado mais direto do trabalho em acurácia, e a redução do \textit{dropout} que o acompanha é coerente com o peso dos hiperparâmetros. A estratégia de busca não fez diferença afirmável, e o orçamento de épocas por \textit{trial} pesou mais.
+Na automação de hiperparâmetros, a sequência já medida em Indian Pines vai da CNN de \citeonline{Souza2023} com a configuração original (OA 0,8960) à CNN do projeto com a mesma configuração (0,9142), as duas no experimento 01 com uma semente, e à configuração otimizada com o SEEDS no experimento 03 (0,9324 $\pm$ 0,0062, com 5 sementes); a busca escolheu os menores valores de taxa de aprendizado e de \textit{dropout} do espaço. \pendente{experimento 05: se o ganho sobre a configuração original com o SEEDS é afirmável; experimento 04: se a estratégia de busca ou o orçamento de épocas por \textit{trial} pesa mais}
 
-Nos segmentadores, a comparação com a CNN fixa levaria à conclusão falsa de que o SLIC não serve para University of Pavia; com a CNN ajustada a cada um, o SLIC empata com o SEEDS, o LSC treina em quatro das cinco sementes, e nenhum dos três supera o SEEDS de forma afirmável. A organização do código, por fim, é o que torna os demais resultados atribuíveis: o não determinismo do LSC e o gerador compartilhado entre threads só foram encontrados porque cada execução é reprodutível. Em relação ao trabalho de referência, a configuração original reimplementada fica abaixo dos valores reportados, o que é coerente com uma política de parada única para as três cenas e com uma única execução de cada lado.
+Nos segmentadores, com o mesmo número de regiões, o SEEDS tem a maior pureza nas três cenas e, em Indian Pines, supera o LSC de forma afirmável em OA e Kappa com a CNN ajustada a cada um; o Watershed segmenta de 28 a 62 vezes mais rápido que o SEEDS. \pendente{experimentos 02 e 03: comparação entre a CNN fixa e a ajustada e se algum segmentador supera o SEEDS de forma afirmável nas três cenas} A organização do código, por fim, é o que torna os demais resultados atribuíveis: o não determinismo do LSC e o gerador compartilhado entre threads só foram encontrados porque cada execução é reprodutível, e as divergências do PCA e da divisão, porque os dados da reimplementação puderam ser comparados aos do notebook. Em relação ao trabalho de referência, a rede do notebook reimplementada fica abaixo dos valores reportados nas três cenas (1,82, 0,75 e 0,14 ponto de OA em Indian Pines, University of Pavia e Salinas Valley), o que é coerente com uma política de parada única e com uma única execução de cada lado; a CNN do projeto, com os mesmos hiperparâmetros, iguala o valor reportado em Indian Pines (0,9142) e fica 0,87 e 0,27 ponto abaixo nas outras duas.
