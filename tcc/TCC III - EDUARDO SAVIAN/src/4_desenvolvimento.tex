@@ -13,7 +13,7 @@ Os dados de entrada da rede são idênticos aos do notebook executado no Google 
 \section{Fluxo de Execução}
 \label{sec:fluxo}
 
-Uma execução carrega o cubo $(H, W, B)$ e a verdade terrestre; no ramo espectral, reduz as $B$ bandas dos pixels rotulados a $K_b$ componentes por PCA com branqueamento (30 em Indian Pines e 15 nas outras cenas); no ramo espacial, gera uma composição RGB de 8 bits com um PCA de 3 componentes da cena inteira e a segmenta em superpixels, cujo identificador é a segunda entrada da rede; divide as amostras; treina a CNN 1D; e calcula OA, AA e Kappa no teste. Os dois ramos são independentes até a fusão.
+Uma execução carrega o cubo $(H, W, B)$ e o \textit{ground truth}; no ramo espectral, reduz as $B$ bandas dos pixels rotulados a $K_b$ componentes por PCA com branqueamento (30 em Indian Pines e 15 nas outras cenas); no ramo espacial, gera uma composição RGB de 8 bits com um PCA de 3 componentes da cena inteira e a segmenta em superpixels, cujo identificador é a segunda entrada da rede; divide as amostras; treina a CNN 1D; e calcula OA, AA e Kappa no teste. Os dois ramos são independentes até a fusão.
 
 \subsection{Segmentadores}
 \label{subsec:desSegmentadores}
@@ -120,7 +120,7 @@ A terceira, a fusão concorrente, realiza na inferência o esquema do projeto (\
 \section{Automação de Hiperparâmetros}
 \label{sec:desHPO}
 
-O espaço de busca tem sete hiperparâmetros com três valores cada, incluindo os da configuração original (\autoref{qua:espaco}): $3^7 = 2.187$ combinações por cena, de 15 a 23 h por semente em Indian Pines. Por isso, a \textbf{busca em grade} cobre o segmentador, a taxa de aprendizado e o \textit{dropout}, os dois de maior efeito em buscas preliminares, com os demais no valor original (27 pontos), e a \textbf{Otimização Bayesiana} com processo gaussiano \cite{WU201926}, implementada com o Optuna, recebe o mesmo orçamento de 27 \textit{trials} no espaço inteiro. No amostrador, o segmentador e a sua configuração são categóricos, e os demais eixos, inteiros ordenados; os quatro primeiros \textit{trials} são sorteados, com cada segmentador ao menos uma vez, e um candidato repetido recebe o valor já medido. Cada \textit{trial} vale pela maior acurácia de validação, e o teste só é registrado.
+O espaço de busca tem sete hiperparâmetros com três valores cada, incluindo os da configuração original (\autoref{qua:espaco}): $3^7 = 2.187$ combinações por cena. Como um treino em Indian Pines leva cerca de 30 s, testar todas levaria perto de 20 h para cada semente. Por isso, a \textbf{busca em grade} cobre o segmentador, a taxa de aprendizado e o \textit{dropout}, os dois de maior efeito em buscas preliminares, com os demais no valor original (27 pontos), e a \textbf{Otimização Bayesiana} com processo gaussiano \cite{WU201926}, implementada com o Optuna, recebe o mesmo orçamento de 27 \textit{trials} no espaço inteiro. No amostrador, o segmentador e a sua configuração são categóricos, e os demais eixos, inteiros ordenados; os quatro primeiros \textit{trials} são sorteados, com cada segmentador ao menos uma vez, e um candidato repetido recebe o valor já medido. Cada \textit{trial} vale pela maior acurácia de validação, e o teste só é registrado.
 
 \begin{quadro}[H]
     \centering
@@ -184,5 +184,5 @@ A implementação seguiu o projeto quanto ao PyTorch, à arquitetura, aos três 
     \item \textbf{Fusão}: mantido o identificador numérico do original, no lugar da codificação \textit{one-hot}, pois a fusão faz parte da configuração de referência; nenhuma configuração sem fusão é treinada, e a vantagem sobre a rede puramente espectral (RF03) é a reportada por \citeonline{Souza2023}.
     \item \textbf{Treino e ambiente}: parada pela acurácia de validação e teto de 200 épocas; GPU local, no lugar do Google Colab ou de HPC.
     \item \textbf{Campanha}: a otimização isolada de cada componente deu lugar à comparação dos segmentadores com a CNN fixa (02) e otimizada (03); os experimentos 04 a 07 rodam só em Indian Pines, a cena de menor acurácia; o 04 treina com 10\% dos 85\% de treino, pelo custo dos 162 \textit{trials}; a linha de base usa uma semente; e os testes de significância deram lugar ao critério de duas vezes o desvio combinado.
-    \item \textbf{Paralelismo}: threads e processos na CPU, no lugar da segmentação em processo e da CNN na GPU: a comparação entre executores exige o mesmo dispositivo.
+    \item \textbf{Paralelismo}: tudo na CPU, e não a CNN na GPU, como previsto, para que o ganho meça o executor, e não a troca de dispositivo.
 \end{itemize}

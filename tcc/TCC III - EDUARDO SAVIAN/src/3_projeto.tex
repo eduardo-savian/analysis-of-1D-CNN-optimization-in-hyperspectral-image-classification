@@ -70,36 +70,36 @@ Os experimentos computacionalmente intensivos serão executados em ambiente de c
 
 Serão utilizados três datasets públicos de imagens hiperespectrais, os mesmos avaliados por \citeonline{Souza2023} (\autoref{tab:trabRel}), ilustrados nas Figuras \ref{fig:indian_pines}, \ref{fig:salinas_valley} e \ref{fig:pavia_university}.
 
-O dataset Indian Pines (\autoref{fig:indian_pines}) representa uma área agrícola capturada em 1992 pelo sensor AVIRIS no noroeste de Indiana. A imagem possui 145×145 pixels, com resolução espacial de 20 metros por pixel; dos seus 21.025 pixels, 10.249 são rotulados em 16 classes de cobertura do solo. Das 224 bandas originais capturadas pelo sensor, foram utilizadas 200 bandas espectrais na faixa de 400 a 2500 nanômetros com intervalos de 10 nanômetros, após a remoção de 4 bandas nulas e 20 bandas comprometidas pela absorção atmosférica de água. A visualização apresenta a composição em falsa-cor à esquerda, o mapa de verdade terrestre ao centro e a legenda com as 16 classes, que incluem diferentes tipos de culturas agrícolas (alfafa, milho, soja, trigo), pastagens, matas e áreas construídas \cite{LabanReduced3D}.
+O dataset Indian Pines (\autoref{fig:indian_pines}) representa uma área agrícola capturada em 1992 pelo sensor AVIRIS no noroeste de Indiana. A imagem possui 145×145 pixels, com resolução espacial de 20 metros por pixel; dos seus 21.025 pixels, 10.249 são rotulados em 16 classes de cobertura do solo. Das 224 bandas originais capturadas pelo sensor, foram utilizadas 200 bandas espectrais na faixa de 400 a 2500 nanômetros com intervalos de 10 nanômetros, após a remoção de 4 bandas nulas e 20 bandas comprometidas pela absorção atmosférica de água. A visualização apresenta a composição em falsa-cor à esquerda, o mapa de \textit{ground truth} ao centro e a legenda com as 16 classes, que incluem diferentes tipos de culturas agrícolas (alfafa, milho, soja, trigo), pastagens, matas e áreas construídas \cite{LabanReduced3D}.
 
 \begin{figure}[H]
     \centering
     \captionsetup{justification=centering}
-    \caption{Indian Pines: composição falsa-cor, mapa de verdade terrestre e legenda}
+    \caption{Indian Pines: composição falsa-cor, mapa de \textit{ground truth} e legenda}
     \includegraphics[width=0.8\textwidth]{src/assets/projeto/indian-pines_dataset_visualization.png}\\
     \captionsetup{justification=raggedright}
     \caption*{Fonte: \citefigure{LabanReduced3D}}
     \label{fig:indian_pines}
 \end{figure}
 
-O dataset Salinas Valley (\autoref{fig:salinas_valley}) foi capturado pelo sensor AVIRIS na região do Vale de Salinas, Califórnia, com resolução espacial de 3,7 metros por pixel. A imagem possui 512×217 pixels e originalmente continha 224 bandas espectrais; após a remoção de 20 bandas afetadas pela absorção de água, restaram 204 bandas utilizáveis para análise. Dos 111.104 pixels da imagem, 54.129 são rotulados em 16 classes, predominantemente culturas agrícolas e tipos de cobertura do solo. A imagem (a) mostra a composição falsa-cor da área agrícola, (b) apresenta o mapa de verdade terrestre e (c) exibe a legenda com as 16 classes, que incluem duas classes de brócolis, alface romana em diferentes estágios, vinhedos, solo em pousio e outras culturas \cite{Li2022Directionally}.
+O dataset Salinas Valley (\autoref{fig:salinas_valley}) foi capturado pelo sensor AVIRIS na região do Vale de Salinas, Califórnia, com resolução espacial de 3,7 metros por pixel. A imagem possui 512×217 pixels e originalmente continha 224 bandas espectrais; após a remoção de 20 bandas afetadas pela absorção de água, restaram 204 bandas utilizáveis para análise. Dos 111.104 pixels da imagem, 54.129 são rotulados em 16 classes, predominantemente culturas agrícolas e tipos de cobertura do solo. A imagem (a) mostra a composição falsa-cor da área agrícola, (b) apresenta o mapa de \textit{ground truth} e (c) exibe a legenda com as 16 classes, que incluem duas classes de brócolis, alface romana em diferentes estágios, vinhedos, solo em pousio e outras culturas \cite{Li2022Directionally}.
 
 \begin{figure}[H]
     \centering
     \captionsetup{justification=centering}
-    \caption{Salinas Valley: (a) falsa-cor, (b) verdade terrestre, (c) legenda}
+    \caption{Salinas Valley: (a) falsa-cor, (b) \textit{ground truth}, (c) legenda}
     \includegraphics[width=0.85\textwidth]{src/assets/projeto/salinas_valley_dataset_visualization.png}\\
     \captionsetup{justification=raggedright}
     \caption*{Fonte: \citefigure{Li2022Directionally}}
     \label{fig:salinas_valley}
 \end{figure}
 
-Por fim, o dataset University of Pavia (\autoref{fig:pavia_university}) representa uma área urbana da Universidade de Pavia, Itália, capturada em 2003 pelo sensor ROSIS. A imagem possui 610×340 pixels, com resolução espacial de 1,3 metro por pixel. Das 115 bandas espectrais originais, capturadas na faixa de comprimento de onda entre 0,43 e 0,86 micrômetro (430 a 860 nanômetros), foram utilizadas 103 bandas, após a remoção de 12 bandas contaminadas por ruído. Dos 207.400 pixels da imagem, 42.776 são rotulados em 9 classes de cobertura urbana. A visualização mostra em (a) a composição falsa-cor da área universitária, em (b) o mapa de verdade terrestre das estruturas urbanas e a legenda com as 9 classes que incluem asfalto, prados, cascalho, árvores, chapas metálicas pintadas, solo exposto, betume, tijolos autoblocantes e sombras \cite{Qi2019Spectral}.
+Por fim, o dataset University of Pavia (\autoref{fig:pavia_university}) representa uma área urbana da Universidade de Pavia, Itália, capturada em 2003 pelo sensor ROSIS. A imagem possui 610×340 pixels, com resolução espacial de 1,3 metro por pixel. Das 115 bandas espectrais originais, capturadas na faixa de comprimento de onda entre 0,43 e 0,86 micrômetro (430 a 860 nanômetros), foram utilizadas 103 bandas, após a remoção de 12 bandas contaminadas por ruído. Dos 207.400 pixels da imagem, 42.776 são rotulados em 9 classes de cobertura urbana. A visualização mostra em (a) a composição falsa-cor da área universitária, em (b) o mapa de \textit{ground truth} das estruturas urbanas e a legenda com as 9 classes que incluem asfalto, prados, cascalho, árvores, chapas metálicas pintadas, solo exposto, betume, tijolos autoblocantes e sombras \cite{Qi2019Spectral}.
 
 \begin{figure}[H]
     \centering
     \captionsetup{justification=centering}
-    \caption{University of Pavia: (a) falsa-cor, (b) verdade terrestre e legenda}
+    \caption{University of Pavia: (a) falsa-cor, (b) \textit{ground truth} e legenda}
     \includegraphics[width=0.7\textwidth]{src/assets/projeto/university_of_pavia_dataset_visualization.png}\\
     \captionsetup{justification=raggedright}
     \caption*{Fonte: \citefigure{Qi2019Spectral}}
