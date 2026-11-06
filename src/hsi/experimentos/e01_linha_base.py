@@ -1,10 +1,3 @@
-"""Experimento 01: a linha de base, com os hiperparâmetros originais e o treino completo.
-
-Uma execução por cena e arquitetura com a semente 42: a CNN do projeto, que é a linha
-de base do trabalho, e a do notebook de Souza (2023), para comparar com os valores
-reportados por ele. Grava as métricas, as épocas e a acurácia de cada classe.
-"""
-
 import numpy as np
 import pandas as pd
 from sklearn.metrics import confusion_matrix

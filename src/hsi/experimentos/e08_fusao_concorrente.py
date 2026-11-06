@@ -1,22 +1,3 @@
-"""Experimento 08: a fusão concorrente do orientador contra a inferência em lote.
-
-Com o mesmo modelo treinado (a configuração original, com SEEDS) e todos os pixels
-rotulados da cena, mede quatro arranjos:
-- "lote": segmenta e infere tudo de uma vez, com 1 e com 16 threads do PyTorch;
-- "sequencial": segmenta e percorre as posições em blocos, numa thread só;
-- "concorrente": o esquema, com N threads, blocos de 1, 64 e 1.024 posições e as duas
-  extensões da região crítica;
-- "desacoplado": o mesmo, com todas as convoluções enfileiradas antes das fusões.
-
-As threads de trabalho usam uma thread do PyTorch cada, e o pool é aquecido fora da
-medição. Cada execução confere se os ids lidos do mapa são os do treino e se as
-classes previstas são as do lote.
-
-`espera_total` soma, nas tarefas, o tempo entre o fim das convoluções e a leitura do
-mapa. Na variante desacoplada inclui o tempo em fila esperando a tarefa de fusão, e
-não mede bloqueio; ali a leitura certa é `parede` e `conv_antes_do_mapa`.
-"""
-
 import numpy as np
 import pandas as pd
 import torch
@@ -54,6 +35,7 @@ def _preparar(cena):
 
 def _linha(cena, r, rep, torch_threads, dados, referencia) -> dict:
     tarefas = r["tarefas"]
+    # No desacoplado a espera inclui o tempo em fila e não mede bloqueio.
     esperas = [t["pegou_mapa"] - t["fim_convolucoes"] for t in tarefas]
     # Fração das posições cujas convoluções acabaram antes de T0 publicar o mapa.
     antes = sum(t["n_posicoes"] for t in tarefas if t["fim_convolucoes"] <= r["t0_fim"])

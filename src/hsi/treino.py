@@ -1,5 +1,3 @@
-"""Treino com parada antecipada e as métricas de teste (OA, AA e Kappa)."""
-
 import copy
 import time
 
@@ -11,7 +9,7 @@ from sklearn.metrics import accuracy_score, cohen_kappa_score, confusion_matrix
 def run_epoch(modelo, loader, perda, device, otimizador=None) -> tuple[float, float]:
     """Uma passada pelo loader; treina se houver otimizador. Devolve (perda, acurácia)."""
     treinando = otimizador is not None
-    # Treino e validação se alternam na mesma época; eval desliga o dropout.
+    # train(False) desliga o dropout na validação.
     modelo.train(treinando)
     soma_perda, acertos, total = 0.0, 0, 0
     if treinando:
@@ -36,12 +34,10 @@ def run_epoch(modelo, loader, perda, device, otimizador=None) -> tuple[float, fl
 def fit(modelo, loaders, perda, otimizador, config, device, verbose=False) -> dict:
     """Treina até `config.epochs` épocas ou até a parada antecipada.
 
-    Para depois de `patience` épocas sem a acurácia de validação superar a melhor por
-    mais de `min_delta`, ou quando ela atinge `target`. Nos dois casos os pesos da
-    melhor época voltam; se o laço chega ao fim sem parar, ficam os da última.
+    Para após `patience` épocas sem melhora maior que `min_delta` na validação, ou ao
+    atingir `target`, e restaura a melhor época; sem parada, ficam os pesos da última.
     """
-    # Olhar um lote antes do treino adianta o gerador do loader; ressemear aqui faz a
-    # ordem dos lotes depender só da semente.
+    # Ressemeia: olhar um lote antes do treino adiantaria o gerador do loader.
     loaders["treino"].generator.manual_seed(config.seed)
     historico = {"loss": [], "accuracy": [], "val_loss": [], "val_accuracy": []}
     melhor, melhor_epoca, sem_melhora, melhor_estado = -np.inf, 0, 0, None
@@ -58,8 +54,7 @@ def fit(modelo, loaders, perda, otimizador, config, device, verbose=False) -> di
 
         if val_acc > melhor + config.min_delta:
             melhor, melhor_epoca, sem_melhora = val_acc, epoca, 0
-            # state_dict() aponta para os tensores vivos; sem a cópia, o "melhor"
-            # mudaria junto com o treino.
+            # state_dict() aponta para os tensores vivos; sem cópia, mudaria com o treino.
             melhor_estado = copy.deepcopy(modelo.state_dict())
         else:
             sem_melhora += 1
@@ -92,7 +87,7 @@ def metrics(verdade: np.ndarray, previsto: np.ndarray) -> dict:
     """OA, AA e Kappa. A AA é a média das acurácias por classe."""
     confusao = confusion_matrix(verdade, previsto)
     suporte = confusao.sum(axis=1)
-    # Uma classe prevista mas ausente do teste tem suporte 0 e conta como acurácia 0.
+    # Classe prevista mas ausente do teste tem suporte 0 e conta como acurácia 0.
     por_classe = np.divide(np.diag(confusao), suporte, out=np.zeros(len(suporte)),
                            where=suporte > 0)
     return {"OA": float(accuracy_score(verdade, previsto)), "AA": float(por_classe.mean()),

@@ -1,12 +1,3 @@
-"""Da cena em disco aos DataLoaders, na ordem em que uma execução percorre.
-
-carga da cena -> ramo espectral (PCA) e ramo espacial (PCA de 3 componentes, RGB e
-segmentador) -> divisão em treino, validação e teste -> DataLoaders.
-
-Os segmentadores estão em segmentadores.py. Os dois ramos não dependem um do outro;
-`prepare_data` pode executá-los em sequência ou em duas threads.
-"""
-
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
@@ -19,7 +10,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from hsi.config import DADOS, SEMENTE_DADOS
 from hsi.segmentadores import rgb_composite, segment, segmenter_params
 
-# Arquivo .mat e chave do array dentro dele, para o cubo e para a verdade terrestre.
+# Arquivo .mat e chave do array, para o cubo e para a verdade terrestre.
 SCENE_FILES = {
     "IP": (("Indian_pines_corrected.mat", "indian_pines_corrected"),
            ("Indian_pines_gt.mat", "indian_pines_gt")),
@@ -43,12 +34,10 @@ def pixel_table(cubo: np.ndarray, gt: np.ndarray) -> tuple[np.ndarray, np.ndarra
 
 
 def apply_pca(x: np.ndarray, n_components: int, seed: int) -> np.ndarray:
-    """PCA com branqueamento, como o PCA(whiten=True) do sklearn anterior à 1.5 que o
-    original usava: SVD randomizado, com o sinal de cada componente decidido por U.
+    """PCA com branqueamento igual ao PCA(whiten=True) do sklearn < 1.5, usado no original.
 
-    O sklearn atual usa outro algoritmo e decide o sinal por V, o que inverte algumas
-    componentes; no PCA de 3 componentes isso inverte um canal da composição RGB e muda
-    a segmentação em Indian Pines e University of Pavia.
+    O sklearn atual decide o sinal das componentes por V e inverte algumas; no PCA de 3
+    componentes isso inverte um canal do RGB e muda a segmentação.
     """
     centrado = x.astype(np.float64) - x.mean(axis=0)
     _, s, vt = randomized_svd(centrado, n_components, n_oversamples=10, n_iter="auto",
@@ -57,28 +46,23 @@ def apply_pca(x: np.ndarray, n_components: int, seed: int) -> np.ndarray:
     return (centrado @ vt.T) / np.sqrt(s ** 2 / (len(x) - 1))
 
 
-# ------------------------------------------------------------ os dois ramos
-
 def spectral_branch(espectros: np.ndarray, n_components: int, seed: int) -> np.ndarray:
     return apply_pca(espectros, n_components, seed)
 
 
 def spatial_branch(pixels, forma, algoritmo, params, seed) -> np.ndarray:
-    # Segmenta a cena inteira, pixels sem rótulo incluídos: os superpixels precisam da
-    # imagem completa.
+    # Cena inteira, com os pixels sem rótulo: os superpixels precisam da imagem completa.
     rgb = rgb_composite(apply_pca(pixels, 3, seed), forma)
     return segment(rgb, algoritmo, params)
 
 
-# ---------------------------------------------------------- divisão dos dados
-
 def split_indices(rotulos, test_ratio, valid_ratio, seed):
-    """Sorteio estratificado em duas etapas, como no original."""
+    """Divisão estratificada em duas etapas, como no original. Devolve (treino, val, teste)."""
     indices = np.arange(len(rotulos))
     treino, resto = train_test_split(indices, test_size=test_ratio, random_state=seed,
                                      stratify=rotulos)
-    # No original, o primeiro retorno desta segunda chamada é o teste, e ela estratifica
-    # pelos rótulos já em one-hot, o que muda o sorteio em relação aos inteiros.
+    # Como no original: o primeiro retorno é o teste, e estratificar pelo one-hot muda o
+    # sorteio em relação aos rótulos inteiros.
     one_hot = np.eye(rotulos.max() + 1, dtype=np.float32)[rotulos[resto]]
     teste, val = train_test_split(resto, test_size=valid_ratio, random_state=seed,
                                   stratify=one_hot)
@@ -98,14 +82,11 @@ def subsample_train(treino, rotulos, fracao, seed):
     return np.sort(np.concatenate(escolhidos))
 
 
-# ------------------------------------------------------------- preparação
-
 def prepare_data(config, backend: str = "sequential") -> dict:
     """Executa os dois ramos e divide as amostras.
 
-    Devolve um dicionário com os espectros reduzidos, as classes, o id do superpixel de
-    cada pixel rotulado, os índices de treino, validação e teste e a posição (linha,
-    coluna) de cada amostra. Com `backend="thread"`, os dois ramos rodam ao mesmo tempo.
+    Devolve espectros reduzidos, classes, id do superpixel e (linha, coluna) de cada pixel
+    rotulado, mais os índices de treino, val e teste. `backend="thread"` roda os ramos juntos.
     """
     cubo, gt = load_scene(config.dataset)
     pixels, rotulos_cena = pixel_table(cubo, gt)
@@ -116,8 +97,7 @@ def prepare_data(config, backend: str = "sequential") -> dict:
     args_espectral = (espectros, config.pca_components, SEMENTE_DADOS)
     args_espacial = (pixels, gt.shape, config.segmenter, segmenter_params(config), SEMENTE_DADOS)
     if backend == "thread":
-        # PCA e OpenCV liberam o GIL no trabalho pesado, então as duas threads rodam
-        # de fato ao mesmo tempo, compartilhando os arrays sem cópia.
+        # PCA e OpenCV liberam o GIL no trabalho pesado; as threads rodam de fato juntas.
         with ThreadPoolExecutor(max_workers=2) as pool:
             espacial = pool.submit(spatial_branch, *args_espacial)
             reduzidos = spectral_branch(*args_espectral)
@@ -142,7 +122,7 @@ def prepare_data(config, backend: str = "sequential") -> dict:
 
 
 def check_data(d: dict) -> None:
-    """Conferências baratas antes de gastar tempo de treino."""
+    """Valida o dicionário de `prepare_data` antes do treino."""
     n = len(d["rotulos"])
     if not np.isfinite(d["espectros"]).all():
         raise ValueError("espectros com NaN ou infinito")

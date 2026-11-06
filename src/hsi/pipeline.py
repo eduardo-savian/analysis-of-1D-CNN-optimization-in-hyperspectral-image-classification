@@ -1,8 +1,3 @@
-"""Uma execução completa: dados, treino e métricas de teste.
-
-É a função que o notebook, a busca de hiperparâmetros e os experimentos chamam.
-"""
-
 from hsi.ambiente import configure_determinism, seed_everything, select_device
 from hsi.config import ExperimentConfig
 from hsi.dados import build_loaders, prepare_data
@@ -13,8 +8,7 @@ from hsi.treino import fit, metrics, predict
 def run_experiment(config: ExperimentConfig, verbose: bool = False, device=None) -> dict:
     """Prepara os dados, treina a CNN 1D e avalia no teste.
 
-    Devolve um dicionário com o modelo, os dados, o histórico do treino, as métricas
-    de teste e o tempo de treino.
+    Devolve um dicionário com modelo, dados, previsões, histórico, métricas e tempo de treino.
     """
     device = device or select_device(verbose=False)
     configure_determinism()

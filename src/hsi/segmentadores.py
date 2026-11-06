@@ -1,11 +1,3 @@
-"""Os segmentadores do projeto: SEEDS, LSC e Watershed, sobre a composição RGB da cena.
-
-Os parâmetros por cena vêm de [segmentadores] em config.toml: os do SEEDS são os do
-notebook original, e LSC e Watershed foram calibrados para gerar o mesmo número de
-regiões que ele. Em LSC e Watershed cada parâmetro tem três valores (variação menor,
-padrão e maior); o padrão é o do meio, e a busca de hiperparâmetros usa os três.
-"""
-
 import cv2 as cv
 import numpy as np
 
@@ -52,7 +44,7 @@ def segment(rgb: np.ndarray, algoritmo: str, p: dict) -> np.ndarray:
 
 
 def _watershed(rgb: np.ndarray, n_marcadores: int) -> np.ndarray:
-    # Marcadores numa grade com a proporção da cena. Os da moldura se perdem, porque o
+    # Marcadores em grade com a proporção da cena; os da moldura se perdem porque o
     # cv.watershed escreve -1 na borda da imagem.
     h, w = rgb.shape[:2]
     linhas = max(1, int(round(np.sqrt(n_marcadores * h / w))))
@@ -64,7 +56,7 @@ def _watershed(rgb: np.ndarray, n_marcadores: int) -> np.ndarray:
             marcadores[y, x] = k
             k += 1
     bruto = cv.watershed(cv.cvtColor(rgb, cv.COLOR_RGB2BGR), marcadores)
-    # As linhas entre bacias (-1) viram uma região própria, a de id 0.
+    # As linhas entre bacias (-1) viram a região 0; o unique renumera os ids sem buracos.
     bruto[bruto < 0] = 0
     _, rotulos = np.unique(bruto, return_inverse=True)
     return rotulos.reshape(bruto.shape).astype(np.int32)

@@ -1,15 +1,3 @@
-"""Experimento 03: cada segmentador com a CNN ajustada para ele.
-
-Para cada cena e segmentador: otimização bayesiana de 16 trials restrita àquele
-segmentador, escolha do vencedor pela validação e retreino do vencedor com 5 sementes.
-O SEEDS, segmentador do trabalho original, passa pelo mesmo tratamento e é a referência
-de `ganho_OA_pp`. Treino com os 85% do original, até 200 épocas e parada após 10 sem
-melhora, como na linha de base, nos trials e nos retreinos.
-
-Grava `03_resumo.csv` (uma linha por cena e segmentador, lida pelo experimento 05) e
-`03_por_seed_<cenas>.csv`.
-"""
-
 import time
 from dataclasses import replace
 
@@ -45,7 +33,7 @@ def experimento_03(*cenas: str) -> list:
             vencedor = trials.loc[trials["val_accuracy (objetivo)"].idxmax()]
             config = vencedor["config"]
 
-            # Guarda só as métricas de cada retreino; modelo e dados são liberados.
+            # Só as métricas: modelo e dados de cada retreino são liberados.
             medidas = []
             for semente in SEMENTES:
                 r = run_experiment(replace(config, seed=semente))
@@ -73,7 +61,7 @@ def experimento_03(*cenas: str) -> list:
             print(f"{segmentador:<10} val {vencedor['val_accuracy (objetivo)']:.4f}  "
                   f"OA {oa.mean():.4f} ± {oa.std():.4f}", flush=True)
 
-        # Ganho de cada segmentador sobre o SEEDS, os dois otimizados.
+        # Ganho sobre o SEEDS, também otimizado.
         da_cena = [r for r in resumo if r["cena"] == cena]
         referencia = next((r["OA"] for r in da_cena if r["condição"] == "seeds"), None)
         if referencia is not None:

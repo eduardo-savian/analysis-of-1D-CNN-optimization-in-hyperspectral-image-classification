@@ -1,14 +1,8 @@
-"""Caminhos do projeto, as variáveis de execução e a configuração de uma execução.
-
-As variáveis ficam em config.toml, na raiz do repositório. Este módulo o lê uma vez, e
-cada módulo pega daqui a sua seção: CONFIG["hpo"], CONFIG["experimentos"]["03"] etc.
-"""
-
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# src/hsi/config.py -> raiz do repositório, onde ficam config.toml, data/ e experimentos/.
+# Raiz do repositório, com config.toml, data/ e experimentos/.
 RAIZ = Path(__file__).resolve().parents[2]
 with open(RAIZ / "config.toml", "rb") as arquivo:
     CONFIG = tomllib.load(arquivo)
@@ -30,8 +24,7 @@ class ExperimentConfig:
 
     dataset: str = _PADRAO["dataset"]
     segmenter: str = _PADRAO["segmenter"]
-    # Mudanças sobre os parâmetros padrão do segmentador; a busca de hiperparâmetros
-    # preenche este campo.
+    # Sobrescreve parâmetros padrão do segmentador; a busca preenche este campo.
     segmenter_overrides: dict = field(default_factory=dict)
     cnn: str = _PADRAO["cnn"]
 

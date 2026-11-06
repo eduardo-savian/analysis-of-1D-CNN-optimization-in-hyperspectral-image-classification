@@ -1,5 +1,3 @@
-"""Versões das bibliotecas, dispositivo, sementes e modo determinístico."""
-
 import importlib.metadata
 import os
 import sys
@@ -8,7 +6,7 @@ import cv2 as cv
 import numpy as np
 import torch
 
-# As versões de requirements.txt, com que os resultados foram medidos.
+# Versões de requirements.txt, com que os resultados foram medidos.
 EXPECTED_VERSIONS = {
     "torch": "2.13.0",
     "numpy": "2.5.1",
@@ -50,11 +48,9 @@ def select_device(verbose: bool = True) -> torch.device:
 
 
 def configure_determinism() -> None:
-    """Deixa as execuções repetíveis: mesmas sementes, mesmo resultado.
+    """Configura OpenCV e PyTorch para que a mesma semente dê o mesmo resultado.
 
-    O OpenCV fica com uma thread porque o LSC paralelo devolvia rótulos diferentes a
-    cada chamada com a mesma imagem. Com uma thread, o LSC fica de duas a quatro vezes
-    mais lento (LSC_THREADS_MS em experimentos/resultados/medicoes_avulsas.md).
+    O OpenCV fica com uma thread porque o LSC paralelo não é determinístico.
     """
     cv.setNumThreads(1)
     os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
@@ -66,8 +62,8 @@ def configure_determinism() -> None:
 
 
 def seed_everything(seed: int) -> None:
-    """Semeia NumPy e PyTorch. Chamar logo antes de criar o modelo, que é quem
-    consome o gerador do PyTorch nos pesos iniciais."""
+    """Semeia NumPy e PyTorch. Chamar logo antes de criar o modelo, que consome o
+    gerador nos pesos iniciais."""
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)

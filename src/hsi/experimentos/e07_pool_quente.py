@@ -1,16 +1,3 @@
-"""Experimento 07: pool frio contra pool quente na partição da cena.
-
-Frio: o pool é criado e fechado dentro da medição, e cada execução paga a partida dos
-workers (com processos, um interpretador novo que reimporta o PyTorch). Quente: o pool
-é criado e aquecido uma vez, fora da medição, e atende as repetições.
-
-O speedup é contra o executor sequencial nas mesmas partições, no mesmo dispositivo.
-A OA também é conferida: sequencial e processos repetem o valor; threads no modo
-independente não, porque as partições disputam o gerador aleatório global do PyTorch.
-
-Indian Pines, 25 épocas, lote 64, semente 42, uma thread do PyTorch por worker.
-"""
-
 import numpy as np
 import pandas as pd
 import torch
@@ -26,7 +13,7 @@ REPETICOES_POOL = C["repeticoes"]
 ARRANJOS_POOL = (("independente", "sequencial"), ("independente", "process"),
             ("replicado", "sequencial"), ("replicado", "thread"),
             ("independente", "thread"))
-# Um pool que não cabe com 25% de folga é recusado (ver config.toml).
+# Memória por processo; um pool que não cabe com 25% de folga é recusado.
 MB_POR_PROCESSO = C["mb_por_processo"]
 
 

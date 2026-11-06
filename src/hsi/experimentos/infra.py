@@ -1,9 +1,3 @@
-"""Onde os experimentos gravam e como retomam uma execução interrompida.
-
-O CSV de cada experimento é regravado a cada medição concluída. Ao recomeçar, o
-experimento relê o CSV e pula as combinações que já estão nele.
-"""
-
 from pathlib import Path
 
 import pandas as pd

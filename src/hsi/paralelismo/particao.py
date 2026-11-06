@@ -1,17 +1,3 @@
-"""Partição da cena: N pedaços treinados ou inferidos ao mesmo tempo.
-
-A segmentação roda uma vez na cena inteira, antes de partir; segmentar cada pedaço
-daria superpixels diferentes nas fronteiras. Os pedaços são faixas horizontais com
-número parecido de pixels rotulados, então o teto do speedup é perto de N.
-
-Dois modos:
-- "independente": cada pedaço treina e testa o próprio modelo;
-- "replicado": um modelo treinado com a cena inteira, e só a inferência é dividida.
-
-Executores: "sequencial" (a referência do speedup), "thread" e "process". As
-partições sempre rodam na CPU, para que os três se comparem no mesmo dispositivo.
-"""
-
 import multiprocessing
 import time
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
@@ -30,8 +16,9 @@ CPU = torch.device("cpu")
 
 
 def partition_scene(coords: np.ndarray, n: int) -> np.ndarray:
-    """Índice da partição de cada amostra: as amostras ordenadas pela linha da cena e
-    cortadas em N faixas do mesmo tamanho; uma fronteira pode cair no meio de uma linha.
+    """Partição de cada amostra: ordenadas pela linha da cena e cortadas em N faixas iguais.
+
+    Uma fronteira pode cair no meio de uma linha.
     """
     ordem = np.argsort(coords[:, 0], kind="stable")
     particao = np.empty(len(coords), dtype=np.int64)
@@ -57,10 +44,9 @@ def slice_data(d: dict, mascara: np.ndarray) -> dict:
 
 
 def train_and_predict(tarefa):
-    """Trabalho de uma partição: treina (se não vier modelo) e prevê o teste dela.
+    """Treina uma partição (se não vier modelo) e prevê o teste dela.
 
-    Fica no nível do módulo porque o executor de processos a envia por pickle, que
-    só serializa funções pelo nome.
+    Fica no nível do módulo porque o pickle do executor de processos serializa funções pelo nome.
     """
     k, pedaco, config, modelo = tarefa
     inicio = time.perf_counter()
@@ -74,10 +60,10 @@ def train_and_predict(tarefa):
 
 
 def init_worker():
-    """Roda uma vez em cada thread ou processo do pool.
+    """Uma thread do PyTorch e do OpenCV por worker do pool.
 
-    O número de threads do PyTorch vale por thread, e um processo novo sobe com o
-    padrão da máquina. Sem isto, N workers usariam N x 32 threads nos mesmos núcleos.
+    A configuração vale por thread e um processo novo sobe com o padrão da máquina; sem
+    isto, N workers usariam N x 32 threads nos mesmos núcleos.
     """
     torch.set_num_threads(1)
     cv.setNumThreads(1)
@@ -90,14 +76,13 @@ def new_pool(executor: str, n: int):
     if executor == "thread":
         return ThreadPoolExecutor(max_workers=n, initializer=init_worker)
     # spawn, e não fork: o PyTorch recusa fork depois que o autograd rodou em threads.
-    # O preço é que cada processo sobe um interpretador novo e reimporta o PyTorch.
     return ProcessPoolExecutor(max_workers=n, mp_context=multiprocessing.get_context("spawn"),
                                initializer=init_worker)
 
 
 def _aquecer(_):
-    # Força o worker a terminar de subir e a inicializar o autograd antes da medição.
-    # O sleep segura o worker ocupado, para o pool criar todos em vez de reusar um.
+    # Inicializa o autograd no worker antes da medição; o sleep o mantém ocupado para o
+    # pool criar todos os workers em vez de reusar um.
     x = torch.zeros(8, 1, 64, requires_grad=True)
     nn.Conv1d(1, 16, 9)(x).sum().backward()
     time.sleep(0.25)
@@ -115,9 +100,8 @@ def run_experiment_particionado(config, n: int, modo: str = "independente",
                                 executor: str = "thread", pool=None) -> dict:
     """Divide a cena em `n` faixas e as processa com o executor pedido.
 
-    Com `pool`, usa um pool já criado e aquecido (pool quente); sem ele, o pool é
-    criado e fechado dentro da medição (pool frio). As métricas são calculadas sobre o
-    teste inteiro, remontado a partir das previsões de cada partição.
+    Com `pool`, usa um pool já aquecido (quente); sem ele, cria e fecha o pool dentro da
+    medição (frio). As métricas são do teste inteiro, remontado das partições.
     """
     if modo == "replicado" and executor == "process":
         raise ValueError("o modo replicado com processos exigiria enviar o modelo a cada um")
@@ -128,8 +112,7 @@ def run_experiment_particionado(config, n: int, modo: str = "independente",
 
     modelo = None
     if modo == "replicado":
-        # Treina uma vez com tudo, no dispositivo padrão, e desce o modelo para a CPU,
-        # onde todas as partições inferem.
+        # Treina uma vez com tudo no dispositivo padrão; as partições inferem na CPU.
         device = select_device(verbose=False)
         loaders = build_loaders(dados, config, device)
         seed_everything(config.seed)
@@ -155,11 +138,10 @@ def run_experiment_particionado(config, n: int, modo: str = "independente",
     tempos = [s[3] for s in saidas]
     return {
         **metrics(verdade, previsto),
-        # O bloco concorrente: treino e inferência no modo independente, só a
-        # inferência no replicado.
+        # Treino e inferência no modo independente; só inferência no replicado.
         "tempo_paralelo": tempo_paralelo,
-        # Com executor concorrente cada tempo já foi medido sob disputa; o speedup
-        # honesto é contra a parede do executor sequencial, não soma ÷ parede.
+        # Tempos medidos sob disputa: o speedup honesto é contra a parede do sequencial,
+        # não soma ÷ parede.
         "soma_partes": sum(tempos),
         "teto": sum(tempos) / max(tempos),
         "overhead": tempo_paralelo - max(tempos),

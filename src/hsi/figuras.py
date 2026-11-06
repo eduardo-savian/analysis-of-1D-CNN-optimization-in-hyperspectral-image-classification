@@ -1,13 +1,3 @@
-"""Figuras da monografia, a partir dos CSVs de experimentos/resultados/.
-
-    .venv/bin/python -m hsi.figuras             todas
-    .venv/bin/python -m hsi.figuras f_eixos     só uma
-
-Cada figura sai em PDF, que o LaTeX inclui, e em PNG, na pasta assets/resultados/ da
-monografia. Título e fonte ficam na legenda do LaTeX, como pede a ABNT, então as
-figuras não têm título.
-"""
-
 from functools import cache
 
 import matplotlib
@@ -29,7 +19,7 @@ from hsi.segmentadores import SEGMENTER_PARAMS, rgb_composite, segment  # noqa: 
 
 DESTINO = FIGURAS
 
-# Paleta que continua distinguível para daltônicos; cada entidade tem uma cor fixa.
+# Paleta distinguível para daltônicos; cada entidade tem uma cor fixa.
 AZUL, LARANJA, AGUA, AMARELO, VIOLETA = "#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#4a3aa7"
 # Cores com significado, fora da paleta de categorias.
 PERDA, NEUTRO = "#d1495b", "#9aa0a6"
@@ -37,8 +27,7 @@ TINTA, TINTA2, FRACO, GRADE, LINHA = "#15181c", "#454b52", "#6b7280", "#e8eaed",
 
 plt.rcParams.update({
     "figure.dpi": 120, "savefig.dpi": 220, "savefig.bbox": "tight",
-    # Fontes embutidas como Type 42: o PDF da figura não depende das fontes da
-    # máquina que compila a monografia.
+    # Type 42 embute as fontes: o PDF não depende das fontes de quem compila.
     "pdf.fonttype": 42,
     "savefig.facecolor": "white", "figure.facecolor": "white",
     "font.family": "DejaVu Sans", "font.size": 10,
@@ -115,13 +104,10 @@ def ler(nome: str) -> pd.DataFrame:
     return pd.read_csv(RESULTADOS / nome)
 
 
-# ------------------------------------------------------------------ paralelismo
-
 def f_fusao_linha_do_tempo(cena: str = "PU"):
-    """O que cada thread faz enquanto T0 segmenta.
+    """Linha do tempo de cada thread enquanto T0 segmenta.
 
-    University of Pavia por padrão: a segmentação ali leva 0,87 s, o bastante para
-    a sobreposição aparecer.
+    University of Pavia por padrão: a segmentação é longa o bastante para a sobreposição aparecer.
     """
     arranjos = [("concorrente", "como no esquema (convolução e fusão na mesma tarefa)"),
                 ("desacoplado", "variante desacoplada (todas as convoluções primeiro)")]
@@ -144,8 +130,8 @@ def f_fusao_linha_do_tempo(cena: str = "PU"):
             eixo.barh(y, linha.fim - linha.pegou_mapa, left=linha.pegou_mapa, height=0.6,
                       color=LARANJA, zorder=3, lw=0)
         if arranjo == "desacoplado":
-            # Na variante desacoplada a linha do tempo grava a thread da fusão, não a da
-            # convolução; a faixa azul mostra só quando as convoluções terminaram.
+            # Aqui a linha do tempo grava a thread da fusão; a faixa azul só marca quando
+            # as convoluções terminaram.
             eixo.barh(len(linhas), q["fim_convolucoes"].max() - q["inicio"].min(),
                       left=q["inicio"].min(), height=0.6, color=AZUL, zorder=3)
             eixo.annotate("todas as convoluções",
@@ -154,8 +140,7 @@ def f_fusao_linha_do_tempo(cena: str = "PU"):
                           fontsize=8, color=AZUL, weight="bold")
             linhas = linhas | {"conv.": len(linhas)}
         eixo.axvline(t0_fim, color=TINTA, lw=1.1, ls="--", zorder=4)
-        # O pool nomeia as threads T_0, T_1...; no esquema elas são T1..TN e T0 é a
-        # da segmentação.
+        # O pool nomeia as threads T_0, T_1...; no rótulo viram T1..TN, e T0 é a da segmentação.
         eixo.set_yticks(list(linhas.values()))
         eixo.set_yticklabels([f"T{int(n.rsplit('_', 1)[-1]) + 1}" if n.startswith("T_") else n
                               for n in linhas])
@@ -175,13 +160,10 @@ def f_fusao_linha_do_tempo(cena: str = "PU"):
     salvar_figura(fig, "fusao_linha_do_tempo")
 
 
-# ------------------------------------------------------ busca de hiperparâmetros
-
 def f_eixos():
     """Validação média por valor de cada eixo, com a configuração original marcada."""
     t = ler("04_trials.csv")
-    # Em ordem de amplitude, como na tabela do apêndice. Taxa de aprendizado e weight
-    # decay em unidades de 10⁻³: rótulos curtos e uma notação só por eixo.
+    # Em ordem de amplitude. Taxa e weight decay em 10⁻³, para rótulos curtos.
     eixos_hpo = [("dropout", "dropout", 0.5, 1),
                  ("learning rate", "taxa de aprendizado (×10$^{-3}$)", 0.001, 1e3),
                  ("segmentador", "segmentador", "seeds", None),
@@ -208,15 +190,13 @@ def f_eixos():
         limpar(eixo); virgula(eixo, casas=2)
     for eixo in eixos[:, 0]:
         eixo.set_ylabel("validação média dos trials")
-    # Legenda da figura, e não de um painel: ancorada num painel, ela encolhe as colunas.
+    # Legenda na figura: ancorada num painel, encolheria as colunas.
     fig.legend(handles=[Patch(color=PERDA, label="valor da configuração original"),
                         Patch(color=NEUTRO, label="outros valores do espaço")],
                ncol=2, loc="upper center", bbox_to_anchor=(0.5, 1.0), frameon=False)
     fig.tight_layout(rect=(0, 0, 1, 0.94), w_pad=0.8, h_pad=1.6)
     salvar_figura(fig, "eixos_hpo")
 
-
-# ------------------------------------------------------- cenas, segmentação e partição
 
 NOME_SEG = {"seeds": "SEEDS", "lsc": "LSC", "watershed": "Watershed"}
 # 20 cores distinguíveis; Indian Pines usa as 16 primeiras, uma por classe.
@@ -278,8 +258,6 @@ def f_particao_faixas():
     fig.tight_layout(w_pad=1.0)
     salvar_figura(fig, "particao_faixas")
 
-
-# ------------------------------------------------------------- linha de base
 
 @cache
 def _linha_de_base_ip():
@@ -361,8 +339,104 @@ def f_matriz_confusao():
     salvar_figura(fig, "matriz_confusao")
 
 
+
+# Valores reportados por Souza (2023) e tempo de cada segmentador (medicoes_avulsas.md).
+OA_SOUZA = {"IP": 0.9142, "PU": 0.9928, "SA": 0.9965}
+TEMPO_SEG_MS = {"IP": {"seeds": 33.3, "lsc": 37.7, "watershed": 1.2},
+                "PU": {"seeds": 599.1, "lsc": 280.2, "watershed": 10.6},
+                "SA": {"seeds": 343.1, "lsc": 151.0, "watershed": 5.5}}
+CENAS = {"IP": "Indian Pines", "PU": "University of Pavia", "SA": "Salinas Valley"}
+
+
+def f_linha_base():
+    """OA da linha de base por cena: CNN de Souza, CNN do projeto e o valor reportado."""
+    t = ler("01_linha_base.csv").set_index(["cena", "cnn"])["OA"]
+    cenas = [c for c in CENAS if (c, "projeto") in t.index]
+    fig, eixo = plt.subplots(figsize=(6.4, 3.2))
+    x = np.arange(len(cenas))
+    for desloc, (cnn, rotulo, cor) in zip((-0.2, 0.2), (("original", "CNN de Souza (2023)", NEUTRO),
+                                                      ("projeto", "CNN do projeto", AZUL))):
+        valores = [t[(c, cnn)] for c in cenas]
+        eixo.bar(x + desloc, valores, 0.36, color=cor, label=rotulo, zorder=3)
+        for xi, v in zip(x + desloc, valores):
+            eixo.text(xi, v - 0.003, num(v, 4), ha="center", va="top", fontsize=8,
+                      color="white", weight="bold", zorder=5)
+    eixo.scatter(x, [OA_SOUZA[c] for c in cenas], marker="D", s=36, color=TINTA, zorder=6,
+                 label="reportado por Souza (2023)")
+    eixo.set(xticks=x, xticklabels=[CENAS[c] for c in cenas], ylim=(0.85, 1.01), ylabel="OA")
+    virgula(eixo, casas=2)
+    limpar(eixo)
+    legendar(eixo, ncol=3)
+    salvar_figura(fig, "linha_base")
+
+
+def f_hpo():
+    """Ganho da busca (experimento 05) e validação por teto de épocas (experimento 04)."""
+    d = ler("05_impacto_hpo.csv")
+    fig, (a, b) = plt.subplots(1, 2, figsize=(9, 3.4), gridspec_kw={"width_ratios": [1.1, 1]})
+    segs = [s for s in SEGMENTERS if s in set(d["condição"])]
+    x = np.arange(len(segs))
+    for desloc, (conf, rotulo, cor) in zip((-0.2, 0.2), (("herdada", "configuração original", NEUTRO),
+                                                       ("otimizada", "otimizada (experimento 03)", AZUL))):
+        g = d[d["configuração"] == conf].groupby("condição")["OA"]
+        medias, desvios = g.mean().reindex(segs), g.std(ddof=0).reindex(segs)
+        barras = a.bar(x + desloc, medias, 0.36, yerr=desvios, capsize=3, color=cor, label=rotulo,
+                       zorder=3, error_kw={"ecolor": TINTA2, "lw": 1})
+        rotular_barras(a, barras, medias, casas=4, fonte=7.5, erros=desvios)
+    a.set(xticks=x, xticklabels=[NOME_SEG[s] for s in segs], ylim=(0.85, 0.96), ylabel="OA de teste")
+    a.set_title("Configuração original e otimizada", loc="left")
+    virgula(a, casas=2)
+    limpar(a)
+    legendar(a, ncol=1, y=1.12)
+
+    t = ler("04_trials.csv")
+    melhor = t.groupby(["orçamento", "estratégia", "semente"])["val_accuracy (objetivo)"].max()
+    for estrategia, rotulo, cor in (("grid", "busca em grade", LARANJA), ("bayes", "bayesiana", AZUL)):
+        m = melhor.xs(estrategia, level="estratégia").groupby("orçamento")
+        orc = m.mean().index.to_numpy()
+        b.errorbar(orc, m.mean(), yerr=m.std(ddof=0), marker="o", ms=6, lw=2, capsize=3,
+                   color=cor, label=rotulo)
+    b.set(xscale="log", xticks=[10, 40, 200], xticklabels=["10", "40", "200"],
+          xlabel="teto de épocas por trial", ylabel="maior validação")
+    b.set_title("Grade e bayesiana com 27 trials", loc="left")
+    virgula(b, casas=2)
+    limpar(b)
+    legendar(b, ncol=1, y=1.12)
+    fig.tight_layout(w_pad=3)
+    salvar_figura(fig, "hpo")
+
+
+def f_segmentadores():
+    """OA otimizada (experimento 03) e tempo de segmentação de cada segmentador."""
+    r = ler("03_resumo.csv")
+    cenas = [c for c in CENAS if c in set(r["cena"])]
+    fig, (a, b) = plt.subplots(1, 2, figsize=(9, 3.2))
+    largura = 0.8 / len(SEGMENTERS)
+    cores = {"seeds": AZUL, "lsc": LARANJA, "watershed": AGUA}
+    for k, seg in enumerate(SEGMENTERS):
+        linhas = r[r["condição"] == seg].set_index("cena").reindex(cenas)
+        x = np.arange(len(cenas)) + (k - 1) * largura
+        a.bar(x, linhas["OA"], largura * 0.92, yerr=linhas["OA_std"], capsize=2, color=cores[seg],
+              label=NOME_SEG[seg], zorder=3, error_kw={"ecolor": TINTA2, "lw": 1})
+        xs = np.arange(len(CENAS)) + (k - 1) * largura
+        b.bar(xs, [TEMPO_SEG_MS[c][seg] for c in CENAS], largura * 0.92, color=cores[seg], zorder=3)
+    a.set(xticks=np.arange(len(cenas)), xticklabels=[CENAS[c] for c in cenas], ylim=(0.85, 1.0),
+          ylabel="OA de teste")
+    a.set_title("OA com a CNN otimizada para cada um", loc="left")
+    virgula(a, casas=2)
+    b.set(xticks=np.arange(len(CENAS)), xticklabels=list(CENAS.values()), yscale="log",
+          ylabel="ms por segmentação")
+    b.set_title("Tempo de segmentação", loc="left")
+    for eixo in (a, b):
+        limpar(eixo)
+    legendar(a, ncol=3, y=1.12)
+    fig.tight_layout(w_pad=3)
+    salvar_figura(fig, "segmentadores")
+
+
 FIGURAS = (f_segmentacoes_ip, f_particao_faixas, f_curvas_treino, f_mapa_classificacao,
-           f_matriz_confusao, f_fusao_linha_do_tempo, f_eixos)
+           f_matriz_confusao, f_fusao_linha_do_tempo, f_eixos, f_linha_base, f_hpo,
+           f_segmentadores)
 
 
 def gerar(*nomes: str) -> None:

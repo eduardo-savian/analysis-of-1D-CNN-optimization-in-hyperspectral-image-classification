@@ -1,13 +1,3 @@
-"""Experimento 06: a cena dividida em N = 2, 4, 8 e 16 faixas, nos modos independente
-e replicado.
-
-No modo independente cada partição treina num processo: com threads elas dividem o
-gerador aleatório global do PyTorch e a OA muda entre execuções iguais. O replicado só
-infere, sem sorteio, e usa threads. 25 épocas, lote 64, uma thread do PyTorch, 3 sementes. O
-monolítico treina na GPU e as partições na CPU, então o speedup contra ele mistura
-dispositivo com paralelismo; o speedup entre executores está no experimento 07.
-"""
-
 import time
 
 import numpy as np
@@ -22,8 +12,8 @@ from hsi.pipeline import run_experiment
 C = CONFIG["experimentos"]["06"]
 PARTICOES = tuple(C["particoes"])
 SEMENTES_PARTICAO = tuple(C["sementes"])
-# Independente: cada faixa treina e avalia o próprio modelo. Replicado: um modelo treinado
-# com a cena inteira infere em cada faixa.
+# Independente: cada faixa treina e avalia o próprio modelo. Replicado: um modelo da cena
+# inteira infere em cada faixa.
 MODOS = ("independente", "replicado")
 
 

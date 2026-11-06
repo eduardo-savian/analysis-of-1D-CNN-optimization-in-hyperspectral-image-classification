@@ -1,22 +1,3 @@
-"""Fusão concorrente, o esquema do orientador: T0 segmenta enquanto T1..TN extraem
-características e fazem a fusão.
-
-    HSI -> PCA(3) -> RGB -> T0: SEEDS -> mapa de segmentação (MS) ----------+
-                                                                            v
-    pixel -> T1..TN: convoluções -> vetor de características -> concatenação -> densas
-
-As convoluções não dependem do mapa, então as threads de trabalho avançam enquanto
-T0 segmenta; só a concatenação espera. Vale para a inferência de um modelo já
-treinado: no treino não há o que sobrepor à segmentação, que roda uma vez.
-
-A trava é a de uma `threading.Condition`. Um mutex sozinho não garante que T0 escreva
-o mapa antes de alguém ler; com a condição, quem chega antes espera até T0 publicar.
-`secao` escolhe a extensão da região crítica:
-- "desenho": como no esquema, T0 segura a trava durante a segmentação inteira e cada
-  tarefa a segura durante a concatenação;
-- "minima": T0 trava só para publicar o mapa pronto, e cada tarefa só para ler os ids.
-"""
-
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -28,18 +9,17 @@ from hsi.dados import spatial_branch
 
 
 def new_thread_pool(n: int) -> ThreadPoolExecutor:
-    # O número de threads do PyTorch vale por thread: as do pool subiriam com o padrão
-    # da máquina (32), e uma convolução de 64 pixels levaria ~100 ms em vez de 0,2 ms.
+    # torch.set_num_threads vale por thread; sem o initializer, cada thread do pool usaria o
+    # padrão da máquina e as convoluções de blocos pequenos ficariam muito mais lentas.
     return ThreadPoolExecutor(max_workers=n, thread_name_prefix="T",
                               initializer=torch.set_num_threads,
                               initargs=(torch.get_num_threads(),))
 
 
 def warm_pool(modelo, entrada: dict, n: int) -> ThreadPoolExecutor:
-    """Cria o pool e faz uma passada do modelo em cada thread, fora da medição.
+    """Cria o pool e aquece cada thread com uma passada do modelo, fora da medição.
 
-    A barreira obriga o executor a criar as `n` threads; sem ela, uma thread rápida
-    pegaria várias passadas e outras nasceriam frias dentro do bloco medido.
+    A barreira força a criação das `n` threads; sem ela, uma thread rápida pegaria várias passadas.
     """
     pool = new_thread_pool(n)
     barreira = threading.Barrier(n)
@@ -113,16 +93,15 @@ def _fundir(modelo, entrada, mapa, convolucoes, secao, origem):
 
 
 def _tarefa(modelo, entrada, mapa, posicoes, secao, origem):
-    # Como no esquema: convoluções e fusão na mesma tarefa. Uma thread que termina as
-    # convoluções antes de T0 publicar fica parada esperando o mapa, e enquanto isso não
-    # pega outra tarefa da fila.
+    # Convoluções e fusão na mesma tarefa: a thread que termina antes de T0 publicar fica
+    # parada esperando o mapa, sem pegar outra tarefa.
     return _fundir(modelo, entrada, mapa, _convolucoes(modelo, entrada, posicoes, origem),
                    secao, origem)
 
 
 def _tarefa_fusao(modelo, entrada, mapa, futuro_convolucoes, secao, origem):
-    # Variante desacoplada. Esperar outro futuro de dentro do pool não trava: todas as
-    # convoluções entram na fila antes das fusões, e a fila é atendida em ordem.
+    # Variante desacoplada. Esperar outro futuro dentro do pool não trava: as convoluções
+    # entram na fila antes das fusões, e a fila é atendida em ordem.
     return _fundir(modelo, entrada, mapa, futuro_convolucoes.result(), secao, origem)
 
 
@@ -130,9 +109,8 @@ def executar_concorrente(modelo, entrada: dict, n: int, bloco: int = 1, secao: s
                          desacoplado: bool = False, pool=None) -> dict:
     """T0 segmenta e `n` threads processam as posições em blocos de `bloco` pixels.
 
-    `entrada` traz a cena inteira para T0 (`pixels`, `forma`, `segmentador`, `params`,
-    `seed`) e, para as threads de trabalho, o espectro reduzido (`espectros`) e a
-    posição (`coords`) de cada pixel rotulado.
+    `entrada` traz a cena para T0 (`pixels`, `forma`, `segmentador`, `params`, `seed`) e,
+    para as threads, `espectros` e `coords` de cada pixel rotulado.
     """
     modelo.eval()
     mapa = {"rotulos": np.full(entrada["forma"], -1, dtype=np.int32),  # -1: nenhum segmentador produz
@@ -170,9 +148,8 @@ def executar_concorrente(modelo, entrada: dict, n: int, bloco: int = 1, secao: s
 def executar_sequencial(modelo, entrada: dict, bloco: int | None = None) -> dict:
     """Referência numa thread só: segmenta e depois infere.
 
-    Sem `bloco`, infere tudo num lote, como o pipeline. Com `bloco`, percorre as
-    posições na mesma granularidade das tarefas concorrentes, que é o denominador
-    justo do speedup das threads.
+    Sem `bloco`, infere tudo num lote; com `bloco`, na granularidade das tarefas
+    concorrentes, o denominador justo do speedup.
     """
     modelo.eval()
     origem = time.perf_counter()

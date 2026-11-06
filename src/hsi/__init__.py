@@ -1,7 +1,7 @@
 """CNN 1D com fusão SEEDS (Souza, 2023) e as otimizações desta monografia.
 
-As variáveis de execução ficam em config.toml, na raiz do repositório. O código, na
-ordem em que uma execução o percorre:
+As variáveis de execução ficam em config.toml, na raiz. Os módulos, na ordem de uma
+execução:
 
     config.py               lê config.toml; caminhos e ExperimentConfig
     ambiente.py             versões, dispositivo, sementes e modo determinístico
@@ -12,6 +12,6 @@ ordem em que uma execução o percorre:
     pipeline.py             run_experiment: da cena às métricas
     hpo.py                  busca de hiperparâmetros: grade e otimização bayesiana
     paralelismo/            partição da cena e fusão concorrente
-    experimentos/           os experimentos 01 a 08 da monografia
-    figuras.py              as figuras do capítulo de resultados
+    experimentos/           os experimentos 01 a 08
+    figuras.py              as figuras dos resultados
 """

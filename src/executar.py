@@ -14,7 +14,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 warnings.filterwarnings("ignore")
-# Funciona sem instalar o pacote: a pasta src/ entra no caminho de importação.
+# Permite importar hsi sem instalar o pacote.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import torch  # noqa: E402

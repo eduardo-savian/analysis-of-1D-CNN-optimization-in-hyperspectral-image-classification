@@ -1,14 +1,3 @@
-"""CNN 1D com a fusão do id do superpixel, em duas arquiteturas.
-
-- "projeto", a usada no trabalho: a do capítulo 3, com convoluções de 16, 32, 64 e 128
-  filtros, max-pooling depois das três primeiras e densas de 256 e 128 neurônios;
-- "original", a do notebook de Souza (2023): 16, 32, 64 e 64 filtros, sem pooling, e
-  densas de 128 e 64. Fica para a comparação da linha de base.
-
-Nas duas, os kernels são os do original (9, 3, 3 e 3), e a saída tem dropout nas duas
-densas e devolve logits; o softmax fica na função de perda.
-"""
-
 import torch
 from torch import nn
 
@@ -17,18 +6,15 @@ ARQUITETURAS = {
     "projeto": {"filtros": (16, 32, 64, 128), "pooling": True, "densas": (256, 128)},
     "original": {"filtros": (16, 32, 64, 64), "pooling": False, "densas": (128, 64)},
 }
-# No projeto, o padding "same" mantém o comprimento e só os três poolings de 2 o
-# encurtam: com menos de 8 componentes sobraria zero. O original, sem padding, consome
-# 8 + 2 + 2 + 2 = 14 posições e pede ao menos 15.
+# Projeto: com padding "same", só os três poolings de 2 encurtam o espectro.
+# Original: sem padding, as convoluções consomem 14 posições.
 MIN_COMPONENTS = {"projeto": 8, "original": 15}
 
 
 class CNN1D(nn.Module):
-    """Convoluções sobre o espectro do pixel; o id do superpixel só entra depois.
+    """Convoluções sobre o espectro do pixel; o id do superpixel entra só nas densas.
 
-    A fusão é tardia: o id é concatenado ao vetor achatado das convoluções, e só as
-    camadas densas veem as duas informações juntas. `fundir` é um passo separado
-    porque a fusão concorrente protege apenas ele com a trava.
+    `fundir` é um passo separado porque a fusão concorrente protege só ele com a trava.
     """
 
     def __init__(self, n_components: int, n_classes: int, dropout: float, cnn: str = "projeto"):
@@ -48,7 +34,7 @@ class CNN1D(nn.Module):
                 comprimento -= kernel - 1
             canais = filtros
         self.convolucoes = nn.Sequential(*camadas, nn.Flatten())
-        # As densas recebem o vetor achatado mais o id do superpixel, como um número só.
+        # +1: o id do superpixel entra como um número só.
         entrada_densas = canais * comprimento + 1
         d1, d2 = arq["densas"]
         self.densas = nn.Sequential(

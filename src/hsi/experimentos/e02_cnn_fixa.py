@@ -1,13 +1,3 @@
-"""Experimento 02: os três segmentadores com a mesma configuração da CNN.
-
-É o desenho previsto no projeto, e ficou como contraexemplo: com a CNN fixa, a
-comparação mede o quanto essa configuração combina com cada segmentador, e não a qualidade
-do segmentador. O experimento 03 refaz a comparação com a CNN ajustada para cada um.
-
-Treino com os 85% do original, até 200 épocas e parada após 10 sem melhora,
-como na linha de base; 5 sementes.
-"""
-
 import numpy as np
 import pandas as pd
 
@@ -22,8 +12,8 @@ SEMENTES = tuple(C["sementes"])
 
 
 def qualidade_segmentacao(cena: str, segmentador: str) -> dict:
-    """Número de regiões e pureza: a fração da classe dominante em cada região,
-    ponderada pelos pixels rotulados."""
+    """Número de regiões e pureza (fração da classe dominante por região, ponderada
+    pelos pixels rotulados)."""
     cubo, gt = load_scene(cena)
     pixels, _ = pixel_table(cubo, gt)
     rgb = rgb_composite(apply_pca(pixels, 3, 42), gt.shape)

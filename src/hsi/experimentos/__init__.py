@@ -1,4 +1,4 @@
-"""Os experimentos da monografia, um módulo por experimento.
+"""Os experimentos, um módulo por experimento.
 
     01  linha de base: hiperparâmetros originais, CNN do projeto e a do original
     02  segmentadores com a configuração fixa (contraexemplo)

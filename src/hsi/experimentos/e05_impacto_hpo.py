@@ -1,13 +1,3 @@
-"""Experimento 05: quanto a busca de hiperparâmetros acrescenta sobre a configuração original.
-
-Para cada segmentador, duas configurações com 5 sementes cada:
-- "herdada": a do notebook de Souza (2023), taxa 1e-3, dropout 0,5, wd 0, lote 32 e o
-  PCA padrão da cena;
-- "otimizada": a vencedora do experimento 03 para a mesma cena e segmentador.
-Treino com os 85% do original, até 200 épocas e parada após 10 sem melhora,
-como na linha de base.
-"""
-
 import ast
 
 import numpy as np
@@ -31,7 +21,7 @@ def _config_impacto(vencedores, cena, segmentador, configuracao, semente):
         **comum, learning_rate=float(v["learning_rate"]), dropout=float(v["dropout"]),
         weight_decay=float(v["weight_decay"]), batch_size=int(v["batch_size"]),
         pca_components=int(v["pca_components"]),
-        # literal_eval lê o dicionário gravado no CSV sem executar código.
+        # literal_eval lê o dicionário do CSV sem executar código.
         segmenter_overrides=ast.literal_eval(v["overrides"]),
     )
 

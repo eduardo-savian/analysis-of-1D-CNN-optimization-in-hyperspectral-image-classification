@@ -1,12 +1,3 @@
-"""Experimento 04: busca em grade contra otimização bayesiana, com o mesmo orçamento.
-
-A grade cobre segmentador x taxa de aprendizado x dropout (27 pontos, os demais eixos
-no valor original); a bayesiana gasta os mesmos 27 trials no espaço inteiro. Tetos de
-10, 40 e 200 épocas por trial, e cada busca é repetida com 3 sementes (na grade, a
-semente só muda o treino). Todos os trials são gravados, não só os vencedores: é deles
-que sai a validação média por valor de cada hiperparâmetro. 10% do treino.
-"""
-
 import pandas as pd
 
 from hsi.config import CONFIG, ExperimentConfig
