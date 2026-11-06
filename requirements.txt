@@ -17,12 +17,12 @@ scikit-learn==1.9.0
 pandas==3.0.5
 matplotlib==3.11.1
 
-# SEEDS, SLIC e LSC (cv2.ximgproc) só existem no pacote contrib.
+# SEEDS e LSC (cv2.ximgproc) só existem no pacote contrib.
 opencv-contrib-python-headless==5.0.0.93
 
 torch==2.13.0
 
-# TPE da busca de hiperparâmetros.
+# Busca em grade e otimização bayesiana com processo gaussiano (GPSampler).
 optuna==4.9.0
 
 # Execução do notebook.

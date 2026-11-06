@@ -29,17 +29,11 @@ from hsi.treino import fit, metrics, predict
 CPU = torch.device("cpu")
 
 
-def partition_scene(coords: np.ndarray, n: int, modo: str = "faixas", seed: int = 42) -> np.ndarray:
-    """Índice da partição de cada amostra.
-
-    "faixas" ordena as amostras pela linha da cena e corta em N partes do mesmo
-    tamanho; uma fronteira pode cair no meio de uma linha. "aleatoria" sorteia, e serve
-    de controle: mesmo custo, sem contiguidade espacial.
+def partition_scene(coords: np.ndarray, n: int) -> np.ndarray:
+    """Índice da partição de cada amostra: as amostras ordenadas pela linha da cena e
+    cortadas em N faixas do mesmo tamanho; uma fronteira pode cair no meio de uma linha.
     """
-    if modo == "faixas":
-        ordem = np.argsort(coords[:, 0], kind="stable")
-    else:
-        ordem = np.random.default_rng(seed).permutation(len(coords))
+    ordem = np.argsort(coords[:, 0], kind="stable")
     particao = np.empty(len(coords), dtype=np.int64)
     for k, bloco in enumerate(np.array_split(ordem, n)):
         particao[bloco] = k
@@ -118,9 +112,8 @@ def warm_up(pool, n: int) -> float:
 
 
 def run_experiment_particionado(config, n: int, modo: str = "independente",
-                                particao: str = "faixas", executor: str = "thread",
-                                pool=None) -> dict:
-    """Divide a cena em `n` partições e as processa com o executor pedido.
+                                executor: str = "thread", pool=None) -> dict:
+    """Divide a cena em `n` faixas e as processa com o executor pedido.
 
     Com `pool`, usa um pool já criado e aquecido (pool quente); sem ele, o pool é
     criado e fechado dentro da medição (pool frio). As métricas são calculadas sobre o
@@ -130,7 +123,7 @@ def run_experiment_particionado(config, n: int, modo: str = "independente",
         raise ValueError("o modo replicado com processos exigiria enviar o modelo a cada um")
     configure_determinism()
     dados = prepare_data(config, "thread")
-    grupo = partition_scene(dados["coords"], n, particao, config.seed)
+    grupo = partition_scene(dados["coords"], n)
     pedacos = [slice_data(dados, grupo == k) for k in range(n)]
 
     modelo = None

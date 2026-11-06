@@ -49,7 +49,7 @@ def _medir(cena, modo, executor, n, estado) -> list[dict]:
     linhas = []
     try:
         for rep in range(REPETICOES_POOL[estado]):
-            r = run_experiment_particionado(config, n, modo, "faixas", executor, pool=pool)
+            r = run_experiment_particionado(config, n, modo, executor, pool=pool)
             linhas.append({"cena": cena, "modo": modo, "executor": executor, "n": n,
                            "estado": estado, "rep": rep, "bloco_paralelo": r["tempo_paralelo"],
                            "soma_partes": r["soma_partes"], "overhead": r["overhead"],

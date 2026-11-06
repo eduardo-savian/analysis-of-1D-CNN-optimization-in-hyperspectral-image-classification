@@ -149,7 +149,7 @@ batch_size = 64
 mb_por_processo = 481
 
 [experimentos.08]
-cenas = ["IP"]
+cenas = ["IP", "PU", "SA"]
 threads = [1, 2, 4, 8, 16]
 blocos = [1, 64, 1024]
 repeticoes = 5

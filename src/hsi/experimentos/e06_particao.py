@@ -1,7 +1,9 @@
-"""Experimento 06: partição da cena com N = 2, 4, 8 e 16, nos modos independente e
-replicado, e o controle com partição aleatória.
+"""Experimento 06: a cena dividida em N = 2, 4, 8 e 16 faixas, nos modos independente
+e replicado.
 
-Executor de threads, 25 épocas, lote 64, uma thread do PyTorch, 3 sementes. O
+No modo independente cada partição treina num processo: com threads elas dividem o
+gerador aleatório global do PyTorch e a OA muda entre execuções iguais. O replicado só
+infere, sem sorteio, e usa threads. 25 épocas, lote 64, uma thread do PyTorch, 3 sementes. O
 monolítico treina na GPU e as partições na CPU, então o speedup contra ele mistura
 dispositivo com paralelismo; o speedup entre executores está no experimento 07.
 """
@@ -20,9 +22,9 @@ from hsi.pipeline import run_experiment
 C = CONFIG["experimentos"]["06"]
 PARTICOES = tuple(C["particoes"])
 SEMENTES_PARTICAO = tuple(C["sementes"])
-ARRANJOS_PARTICAO = (("independente · faixas", "independente", "faixas"),
-            ("independente · aleatória", "independente", "aleatoria"),
-            ("replicado · faixas", "replicado", "faixas"))
+# Independente: cada faixa treina e avalia o próprio modelo. Replicado: um modelo treinado
+# com a cena inteira infere em cada faixa.
+MODOS = ("independente", "replicado")
 
 
 def _config_particao(cena, semente):
@@ -46,16 +48,17 @@ def experimento_06(*cenas: str) -> pd.DataFrame:
                            "OA": r["OA"], "AA": r["AA"], "Kappa": r["Kappa"]})
             salvar(linhas, destino)
 
-        for rotulo, modo, particao in ARRANJOS_PARTICAO:
+        for modo in MODOS:
             for n in PARTICOES:
                 for semente in SEMENTES_PARTICAO:
-                    if (cena, rotulo, n, semente) in feitas:
+                    if (cena, modo, n, semente) in feitas:
                         continue
                     inicio = time.perf_counter()
-                    r = run_experiment_particionado(_config_particao(cena, semente), n, modo, particao,
-                                                    executor="thread")
+                    executor = "process" if modo == "independente" else "thread"
+                    r = run_experiment_particionado(_config_particao(cena, semente), n, modo,
+                                                    executor=executor)
                     linhas.append({
-                        "cena": cena, "arranjo": rotulo, "n": n, "semente": semente,
+                        "cena": cena, "arranjo": modo, "n": n, "semente": semente,
                         "tempo_total": time.perf_counter() - inicio,
                         "bloco_paralelo": r["tempo_paralelo"], "soma_partes": r["soma_partes"],
                         "speedup_bloco": r["soma_partes"] / r["tempo_paralelo"],
@@ -63,7 +66,7 @@ def experimento_06(*cenas: str) -> pd.DataFrame:
                     })
                     salvar(linhas, destino)
                 oa = [l["OA"] for l in linhas
-                      if l["cena"] == cena and l["arranjo"] == rotulo and l["n"] == n]
-                print(f"{cena} {rotulo:<26} N={n:<3} OA {np.mean(oa):.4f}", flush=True)
+                      if l["cena"] == cena and l["arranjo"] == modo and l["n"] == n]
+                print(f"{cena} {modo:<13} N={n:<3} OA {np.mean(oa):.4f}", flush=True)
     print(f"\nCSV: {destino}")
     return pd.DataFrame(linhas)
